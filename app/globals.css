@@ -20,6 +20,9 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #f8f8f4;
   --color-success: #22c55e;
+  --color-secondary: #e5e5e0;
+  --color-secondary-foreground: #1a1a1a;
+  --color-highlight-foreground: #1a1a1a;
 
   /* Typography */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -37,6 +40,12 @@
   --color-muted-foreground: #9ca3af;
   --color-border: #2d3a55;
   --color-input: #2d3a55;
+  --color-primary: #6b8aff;
+  --color-primary-foreground: #0f1623;
+  --color-ring: #6b8aff;
+  --color-secondary: #252f45;
+  --color-secondary-foreground: #f8f8f4;
+  --color-highlight-foreground: #1a1a1a;
 }
 
 body {
