@@ -72,7 +72,7 @@ export function MatchCard({
   );
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
-  >("idle");
+  >(prediction !== null ? "saved" : "idle");
   const [, startTransition] = useTransition();
 
   const isDirty =
@@ -245,7 +245,7 @@ export function MatchCard({
             className={cn(
               "rounded px-4 py-1 text-xs font-medium transition-colors",
               saveStatus === "saved"
-                ? "bg-green-100 text-green-700"
+                ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
                 : saveStatus === "error"
                   ? "bg-red-100 text-red-700"
                   : "bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 dark:border dark:border-primary dark:bg-primary/20 dark:text-white dark:hover:bg-primary/30 dark:disabled:opacity-60"
