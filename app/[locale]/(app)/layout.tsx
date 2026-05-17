@@ -37,6 +37,7 @@ export default async function AppLayout({ children, params }: Props) {
           podio: t("podio"),
           admin: t("admin"),
           logout: t("logout"),
+          menu: t("menu"),
         }}
       />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">

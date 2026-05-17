@@ -9,7 +9,8 @@
     "scoreboard": "순위표",
     "podio": "포디엄",
     "admin": "관리자",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "menu": "메뉴"
   },
   "auth": {
     "login": "로그인",

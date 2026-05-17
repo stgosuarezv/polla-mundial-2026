@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LocaleSwitcher } from "./locale-switcher";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
+import { MobileNav } from "./mobile-nav";
 
 interface NavBarProps {
   locale: string;
@@ -13,6 +14,7 @@ interface NavBarProps {
     podio: string;
     admin: string;
     logout: string;
+    menu: string;
   };
 }
 
@@ -28,8 +30,11 @@ export function NavBar({ locale, displayName, isAdmin, t }: NavBarProps) {
           ⚽ Polla 2026
         </Link>
 
-        {/* Nav links */}
-        <div className="flex flex-1 items-center gap-1 overflow-x-auto">
+        {/* Burger menu (mobile only) */}
+        <MobileNav locale={locale} isAdmin={isAdmin} t={t} />
+
+        {/* Nav links (desktop only) */}
+        <div className="hidden flex-1 items-center gap-1 sm:flex">
           <NavLink href={`/${locale}/predictions`}>{t.predictions}</NavLink>
           <NavLink href={`/${locale}/podio`}>{t.podio}</NavLink>
           <NavLink href={`/${locale}/scoreboard`}>{t.scoreboard}</NavLink>

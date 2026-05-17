@@ -9,7 +9,8 @@
     "scoreboard": "Scoreboard",
     "podio": "Podium",
     "admin": "Admin",
-    "logout": "Log out"
+    "logout": "Log out",
+    "menu": "Menu"
   },
   "auth": {
     "login": "Log in",
