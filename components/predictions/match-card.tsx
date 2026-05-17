@@ -248,7 +248,7 @@ export function MatchCard({
                 ? "bg-green-100 text-green-700"
                 : saveStatus === "error"
                   ? "bg-red-100 text-red-700"
-                  : "bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 dark:border dark:border-primary dark:bg-primary/20 dark:text-white dark:hover:bg-primary/30"
+                  : "bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 dark:border dark:border-primary dark:bg-primary/20 dark:text-white dark:hover:bg-primary/30 dark:disabled:opacity-60"
             )}
           >
             {saveStatus === "saving"
