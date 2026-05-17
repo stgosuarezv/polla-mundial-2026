@@ -80,6 +80,12 @@ export function MatchCard({
     String(awayInput) !== String(prediction?.away_score_pred ?? "") ||
     penWinner !== (prediction?.penalty_winner_team_id ?? "");
 
+  const canSave = saveStatus !== "saving" && (isDirty || saveStatus === "error");
+
+  function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && canSave) handleSave();
+  }
+
   const showPenPicker =
     isKnockout &&
     homeInput !== "" &&
@@ -146,18 +152,14 @@ export function MatchCard({
             <>
               <ScoreInput
                 value={homeInput}
-                onChange={(v) => {
-                  setHomeInput(v);
-                  setSaveStatus("idle");
-                }}
+                onChange={(v) => { setHomeInput(v); setSaveStatus("idle"); }}
+                onKeyDown={handleEnter}
               />
               <span className="text-sm font-bold text-muted-foreground">-</span>
               <ScoreInput
                 value={awayInput}
-                onChange={(v) => {
-                  setAwayInput(v);
-                  setSaveStatus("idle");
-                }}
+                onChange={(v) => { setAwayInput(v); setSaveStatus("idle"); }}
+                onKeyDown={handleEnter}
               />
             </>
           )}
@@ -268,9 +270,11 @@ export function MatchCard({
 function ScoreInput({
   value,
   onChange,
+  onKeyDown,
 }: {
   value: string | number;
   onChange: (v: string) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <input
@@ -279,6 +283,7 @@ function ScoreInput({
       max={30}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
       className="h-9 w-10 rounded border border-border bg-background text-center text-sm font-bold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
     />
   );
