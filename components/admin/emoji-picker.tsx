@@ -2,25 +2,14 @@
 
 import { useState } from "react";
 import { Smile } from "lucide-react";
+import EmojiPickerReact, { EmojiClickData, Theme } from "emoji-picker-react";
+import { useTheme } from "next-themes";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-
-const EMOJIS = [
-  // Soccer / sports / trophies
-  "⚽", "🏆", "🥇", "🥈", "🥉", "🎯", "⭐", "🔥", "💪", "🏟️",
-  // Faces / vibes
-  "😀", "😎", "🤓", "🥶", "😈", "👻", "👽", "🤖", "💩", "🎃",
-  // Animals
-  "🐐", "🦁", "🐯", "🐺", "🐻", "🦅", "🐉", "🐂", "🦊", "🐼",
-  // Symbols
-  "❤️", "💯", "⚡", "💥", "☠️", "🚀", "👑", "💎", "🎉", "🍻",
-  // Flags
-  "🇨🇱", "🇪🇸", "🇰🇷", "🇺🇸", "🇲🇽", "🇨🇦", "🇧🇷", "🇦🇷", "🇫🇷", "🇩🇪",
-];
 
 interface EmojiPickerProps {
   onSelect: (emoji: string) => void;
@@ -29,6 +18,12 @@ interface EmojiPickerProps {
 
 export function EmojiPicker({ onSelect, ariaLabel }: EmojiPickerProps) {
   const [open, setOpen] = useState(false);
+  const { resolvedTheme } = useTheme();
+
+  function handleEmojiClick(emojiData: EmojiClickData) {
+    onSelect(emojiData.emoji);
+    setOpen(false);
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -43,22 +38,12 @@ export function EmojiPicker({ onSelect, ariaLabel }: EmojiPickerProps) {
       >
         <Smile size={16} />
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6} className="w-auto p-2">
-        <div className="grid grid-cols-10 gap-1">
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => {
-                onSelect(e);
-                setOpen(false);
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded text-lg hover:bg-muted"
-            >
-              {e}
-            </button>
-          ))}
-        </div>
+      <PopoverContent align="start" sideOffset={6} className="w-auto border-0 p-0">
+        <EmojiPickerReact
+          onEmojiClick={handleEmojiClick}
+          theme={resolvedTheme === "dark" ? Theme.DARK : Theme.LIGHT}
+          lazyLoadEmojis
+        />
       </PopoverContent>
     </Popover>
   );
