@@ -5,6 +5,7 @@ import { InviteSection } from "@/components/admin/invite-section";
 import { MatchesSection } from "@/components/admin/matches-section";
 import { SyncSection } from "@/components/admin/sync-section";
 import { AuditSection } from "@/components/admin/audit-section";
+import { UsersSection } from "@/components/admin/users-section";
 
 interface Props {
   params: Promise<{ locale: string }>;
@@ -42,6 +43,12 @@ export default async function AdminPage({ params }: Props) {
     .select("id, code, name_en")
     .order("name_en", { ascending: true });
 
+  // ── Users ────────────────────────────────────────────────────────────────────
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, display_name, is_admin")
+    .order("display_name", { ascending: true });
+
   // ── Audit log (last 50) ───────────────────────────────────────────────────────
   const { data: auditEntries } = await admin
     .from("match_audit")
@@ -64,6 +71,7 @@ export default async function AdminPage({ params }: Props) {
         <TabsList className="flex-wrap">
           <TabsTrigger value="invitations">{t("tabs.invitations")}</TabsTrigger>
           <TabsTrigger value="matches">{t("tabs.matches")}</TabsTrigger>
+          <TabsTrigger value="users">{t("tabs.users")}</TabsTrigger>
           <TabsTrigger value="sync">{t("tabs.sync")}</TabsTrigger>
           <TabsTrigger value="audit">{t("tabs.audit")}</TabsTrigger>
         </TabsList>
@@ -74,6 +82,10 @@ export default async function AdminPage({ params }: Props) {
 
         <TabsContent value="matches" className="mt-4">
           <MatchesSection rounds={rounds ?? []} allTeams={teams ?? []} />
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <UsersSection users={profiles ?? []} />
         </TabsContent>
 
         <TabsContent value="sync" className="mt-4">

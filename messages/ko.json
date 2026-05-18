@@ -88,8 +88,15 @@
     "tabs": {
       "invitations": "초대",
       "matches": "경기",
+      "users": "사용자",
       "sync": "동기화",
       "audit": "감사 로그"
+    },
+    "users": {
+      "save": "저장",
+      "saving": "저장 중…",
+      "saved": "저장됨",
+      "admin": "admin"
     },
     "invitations": {
       "inviteTitle": "사용자 초대",

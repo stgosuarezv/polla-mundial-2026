@@ -203,6 +203,34 @@ export async function rescoreAll(): Promise<ActionResult<{ updated: number }>> {
   return { ok: true, data: { updated } };
 }
 
+// ── Update user display name ───────────────────────────────────────────────────
+
+const UpdateUserDisplayNameSchema = z.object({
+  userId: z.string().uuid(),
+  displayName: z.string().trim().min(1).max(50),
+});
+
+export async function updateUserDisplayName(
+  input: z.infer<typeof UpdateUserDisplayNameSchema>
+): Promise<ActionResult<{ userId: string; displayName: string }>> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const parsed = UpdateUserDisplayNameSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+
+  const { userId, displayName } = parsed.data;
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("profiles")
+    .update({ display_name: displayName })
+    .eq("id", userId);
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: { userId, displayName } };
+}
+
 // ── Sync from football-data.org ────────────────────────────────────────────────
 
 export async function syncFromFootballData(): Promise<

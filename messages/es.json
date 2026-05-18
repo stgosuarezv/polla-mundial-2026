@@ -88,8 +88,15 @@
     "tabs": {
       "invitations": "Invitaciones",
       "matches": "Partidos",
+      "users": "Usuarios",
       "sync": "Sincronizar",
       "audit": "Auditoría"
+    },
+    "users": {
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "admin": "admin"
     },
     "invitations": {
       "inviteTitle": "Invitar usuario",

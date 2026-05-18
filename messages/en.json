@@ -88,8 +88,15 @@
     "tabs": {
       "invitations": "Invitations",
       "matches": "Matches",
+      "users": "Users",
       "sync": "Sync & Rescore",
       "audit": "Audit Log"
+    },
+    "users": {
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "admin": "admin"
     },
     "invitations": {
       "inviteTitle": "Invite a user",
