@@ -118,7 +118,7 @@ function UserRow({
       </td>
       <td className="px-3 py-2 whitespace-nowrap">
         {user.is_admin && (
-          <span className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs text-primary dark:border-primary/60 dark:bg-primary/20">
+          <span className="rounded bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
             {t("admin")}
           </span>
         )}
