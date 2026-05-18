@@ -20,7 +20,7 @@ interface NavBarProps {
 
 export function NavBar({ locale, displayName, isAdmin, t }: NavBarProps) {
   return (
-    <nav className="bg-[#1f2a5c] text-white shadow-md dark:bg-card">
+    <nav className="bg-primary text-primary-foreground shadow-md dark:bg-card dark:text-foreground">
       <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3">
         {/* Logo */}
         <Link
