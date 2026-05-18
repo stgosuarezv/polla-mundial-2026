@@ -96,7 +96,8 @@
       "save": "저장",
       "saving": "저장 중…",
       "saved": "저장됨",
-      "admin": "admin"
+      "admin": "admin",
+      "insertEmoji": "이모지 삽입"
     },
     "invitations": {
       "inviteTitle": "사용자 초대",

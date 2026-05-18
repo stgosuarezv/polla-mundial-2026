@@ -96,7 +96,8 @@
       "save": "Save",
       "saving": "Saving…",
       "saved": "Saved",
-      "admin": "admin"
+      "admin": "admin",
+      "insertEmoji": "Insert emoji"
     },
     "invitations": {
       "inviteTitle": "Invite a user",
