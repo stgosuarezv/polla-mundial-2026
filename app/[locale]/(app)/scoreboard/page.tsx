@@ -65,6 +65,22 @@ export default async function ScoreboardPage({ params }: Props) {
 
   const rows = computeLeaderboard(users, finishedIds, predictions);
 
+  // Tied ranks split the combined pot for the positions they occupy.
+  // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.
+  const prizeByRank = new Map<number, number>();
+  for (let i = 0; i < rows.length; ) {
+    const rank = rows[i]!.rank;
+    let j = i;
+    while (j < rows.length && rows[j]!.rank === rank) j++;
+    const groupSize = j - i;
+    let pot = 0;
+    for (let k = 0; k < groupSize; k++) {
+      pot += PRIZES_CLP[rank - 1 + k] ?? 0;
+    }
+    if (pot > 0) prizeByRank.set(rank, Math.round(pot / groupSize));
+    i = j;
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
@@ -116,7 +132,7 @@ export default async function ScoreboardPage({ params }: Props) {
             <tbody className="divide-y">
               {rows.map((row) => {
                 const isMe = row.userId === user?.id;
-                const prizeAmount = PRIZES_CLP[row.rank - 1];
+                const prizeAmount = prizeByRank.get(row.rank);
                 const prize =
                   prizeAmount !== undefined ? formatCLP(locale, prizeAmount) : "—";
                 return (
@@ -160,7 +176,7 @@ export default async function ScoreboardPage({ params }: Props) {
                     <td
                       className={cn(
                         "px-3 py-2.5 text-right whitespace-nowrap",
-                        row.rank <= PRIZES_CLP.length
+                        prizeAmount !== undefined
                           ? "font-medium text-foreground"
                           : "text-muted-foreground"
                       )}
