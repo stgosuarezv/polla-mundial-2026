@@ -76,6 +76,7 @@
     "rank": "Rank",
     "player": "Player",
     "points": "Pts",
+    "prize": "Prize",
     "hits": "Hits",
     "zeros": "Zeros",
     "gap": "Gap",
@@ -83,7 +84,8 @@
     "noData": "No scores yet.",
     "viewPredictions": "View predictions",
     "predictionsOf": "Predictions by {name}",
-    "backToScoreboard": "← Back to scoreboard"
+    "backToScoreboard": "← Back to scoreboard",
+    "poolCaption": "Total pool: {amount} CLP — top 8 win. See the prize table in the <link>rules</link>."
   },
   "admin": {
     "title": "Admin Panel",

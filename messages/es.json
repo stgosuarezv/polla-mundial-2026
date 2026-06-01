@@ -76,6 +76,7 @@
     "rank": "Pos.",
     "player": "Jugador",
     "points": "Pts",
+    "prize": "Premio",
     "hits": "Aciertos",
     "zeros": "Ceros",
     "gap": "Dif.",
@@ -83,7 +84,8 @@
     "noData": "Aún no hay puntuaciones.",
     "viewPredictions": "Ver predicciones",
     "predictionsOf": "Predicciones de {name}",
-    "backToScoreboard": "← Volver a la tabla"
+    "backToScoreboard": "← Volver a la tabla",
+    "poolCaption": "Pozo total: {amount} CLP — premio para los 8 primeros. Ver premios en las <link>reglas</link>."
   },
   "admin": {
     "title": "Panel de administración",

@@ -4,6 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
 import { cn } from "@/lib/utils";
 
+const PRIZES_CLP = [
+  1_250_000, 500_000, 250_000, 150_000, 125_000, 100_000, 75_000, 50_000,
+] as const;
+const POOL_TOTAL_CLP = PRIZES_CLP.reduce((sum, n) => sum + n, 0);
+
+function formatCLP(locale: string, amount: number): string {
+  const tag = locale === "es" ? "es-CL" : locale === "ko" ? "ko-KR" : "en-US";
+  return new Intl.NumberFormat(tag, {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
 interface Props {
   params: Promise<{ locale: string }>;
 }
@@ -55,6 +69,20 @@ export default async function ScoreboardPage({ params }: Props) {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
 
+      <p className="text-sm text-muted-foreground">
+        {t.rich("poolCaption", {
+          amount: formatCLP(locale, POOL_TOTAL_CLP),
+          link: (chunks) => (
+            <Link
+              href={`/${locale}/rules`}
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
+
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
@@ -71,6 +99,9 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("points")}
                 </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  {t("prize")}
+                </th>
                 <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground sm:table-cell">
                   {t("hits")}
                 </th>
@@ -85,6 +116,10 @@ export default async function ScoreboardPage({ params }: Props) {
             <tbody className="divide-y">
               {rows.map((row) => {
                 const isMe = row.userId === user?.id;
+                const prize =
+                  row.rank >= 1 && row.rank <= PRIZES_CLP.length
+                    ? formatCLP(locale, PRIZES_CLP[row.rank - 1])
+                    : "—";
                 return (
                   <tr
                     key={row.userId}
@@ -111,6 +146,16 @@ export default async function ScoreboardPage({ params }: Props) {
                     </td>
                     <td className="px-3 py-2.5 text-right font-bold text-primary">
                       {row.totalPoints}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-3 py-2.5 text-right whitespace-nowrap",
+                        row.rank <= PRIZES_CLP.length
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {prize}
                     </td>
                     <td className="hidden px-3 py-2.5 text-right text-muted-foreground sm:table-cell">
                       {row.matchesHit}

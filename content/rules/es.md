@@ -8,7 +8,7 @@
 |---|---|
 | **Partidos** | 104 en total: 72 de fase de grupos (3 fechas × 24 partidos) + 32 de eliminatorias. |
 | **Qué predices** | El marcador exacto de cada partido. En eliminatorias con empate al final del tiempo reglamentario/prórroga, también debes indicar quién avanza. |
-| **Cierre de cada ronda** | Cuando la ronda *empieza* — pitazo inicial del primer partido. No se puede editar ni agregar predicciones después del cierre. |
+| **Cierre de cada ronda** | Medianoche hora de Chile del día del primer partido de la ronda. No se puede editar ni agregar predicciones después. |
 | **Grupos — puntos** | Máx. **10 pts**: resultado ✓ (5) · goles local exactos ✓ (2) · goles visita exactos ✓ (2) · diferencia+ganador ✓ (1). Todos los criterios son independientes entre sí. |
 | **Eliminatorias — puntos** | Máx. **25 pts**: resultado ✓ (10) · goles local exactos ✓ (4) · goles visita exactos ✓ (4) · diferencia+ganador ✓ (2) · quién avanza ✓ (5). |
 | **Goles en eliminatorias** | Los goles de prórroga cuentan en el marcador final. Los goles exactos suman puntos aunque el resultado general no esté correcto. |
@@ -32,6 +32,8 @@ Una polla de pronósticos para el Mundial FIFA 2026. Cada jugador predice el mar
 
 La polla es **por invitación**. Los administradores te enviarán un correo con un enlace de registro. Ese enlace te lleva a una página donde eliges tu nombre y contraseña. Una vez registrado, puedes ingresar en cualquier momento desde el link de arriba.
 
+Cada persona puede tener máximo una cuenta — no se permiten registros duplicados.
+
 ---
 
 ## Estructura del torneo
@@ -46,6 +48,24 @@ Más un **Bonus Podio** (apuesta especial, ver más abajo).
 
 ---
 
+## Premios
+
+El pozo total es de **$2.500.000 CLP**, distribuido entre los ocho primeros lugares de la tabla final.
+
+| Lugar | Premio (CLP) |
+|---|---|
+| 1° | $1.250.000 |
+| 2° | $500.000 |
+| 3° | $250.000 |
+| 4° | $150.000 |
+| 5° | $125.000 |
+| 6° | $100.000 |
+| 7° | $75.000 |
+| 8° | $50.000 |
+| **Total** | **$2.500.000** |
+
+---
+
 ## ¿Cómo funciona el pronóstico?
 
 ### Predicciones de partido
@@ -56,9 +76,9 @@ Más un **Bonus Podio** (apuesta especial, ver más abajo).
 
 ### Cierre de cada ronda
 
-> **La ronda se cierra en el momento exacto en que empieza — es decir, el pitazo inicial del primer partido de esa ronda (hora UTC).**
+> **La ronda se cierra a las 00:00 hora de Chile del día del primer partido de esa ronda.**
 
-Esto significa que el cierre es cuando la fecha *comienza*, no cuando termina. Si la Fecha 1 arranca el lunes a las 18:00 UTC, todas las predicciones de la Fecha 1 quedan bloqueadas a las 18:00 UTC del lunes, aunque los demás partidos de esa fecha se jueguen días después.
+Si el primer partido de una ronda es el lunes 15 de junio (hora de Chile), todas las predicciones de esa ronda quedan bloqueadas a las 00:00 (medianoche) del lunes 15 de junio hora de Chile — aunque los partidos en sí se jueguen más tarde ese mismo día.
 
 Una vez cerrada, no se pueden editar ni agregar predicciones. Los partidos sin predicción valen 0 puntos. La app muestra una cuenta regresiva al próximo cierre.
 
@@ -185,4 +205,4 @@ Ese partido vale 0 puntos para ti.
 Puedes guardar y modificar tus selecciones cuantas veces quieras antes del cierre de la ventana. La última versión guardada es la que cuenta.
 
 **¿Cómo sé cuándo cierra cada ronda?**
-La app muestra una cuenta regresiva en todo momento. El cierre ocurre cuando la ronda *empieza* — en el pitazo inicial del primer partido de cada fecha. No cuando termina la última fecha, sino cuando arranca la primera.
+La app muestra una cuenta regresiva en todo momento. Cada ronda se cierra a las 00:00 hora de Chile del día del primer partido de esa ronda — cuando empieza la fecha, no cuando los partidos efectivamente arrancan.

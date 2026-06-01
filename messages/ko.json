@@ -76,6 +76,7 @@
     "rank": "순위",
     "player": "선수",
     "points": "점수",
+    "prize": "상금",
     "hits": "적중",
     "zeros": "영점",
     "gap": "차이",
@@ -83,7 +84,8 @@
     "noData": "아직 점수가 없습니다.",
     "viewPredictions": "예측 보기",
     "predictionsOf": "{name}의 예측",
-    "backToScoreboard": "← 순위표로 돌아가기"
+    "backToScoreboard": "← 순위표로 돌아가기",
+    "poolCaption": "총 상금: {amount} CLP — 상위 8명에게 분배. 상금표는 <link>규칙</link>에서 확인하세요."
   },
   "admin": {
     "title": "관리자 패널",
