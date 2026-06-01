@@ -116,10 +116,9 @@ export default async function ScoreboardPage({ params }: Props) {
             <tbody className="divide-y">
               {rows.map((row) => {
                 const isMe = row.userId === user?.id;
+                const prizeAmount = PRIZES_CLP[row.rank - 1];
                 const prize =
-                  row.rank >= 1 && row.rank <= PRIZES_CLP.length
-                    ? formatCLP(locale, PRIZES_CLP[row.rank - 1])
-                    : "—";
+                  prizeAmount !== undefined ? formatCLP(locale, prizeAmount) : "—";
                 return (
                   <tr
                     key={row.userId}
