@@ -8,12 +8,17 @@ import { SyncSection } from "@/components/admin/sync-section";
 import { AuditSection } from "@/components/admin/audit-section";
 import { UsersSection } from "@/components/admin/users-section";
 
+const VALID_TABS = ["invitations", "matches", "rounds", "users", "sync", "audit"] as const;
+
 interface Props {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
-export default async function AdminPage({ params }: Props) {
+export default async function AdminPage({ params, searchParams }: Props) {
   const { locale } = await params;
+  const { tab } = await searchParams;
+  const defaultTab = VALID_TABS.includes(tab as typeof VALID_TABS[number]) ? tab! : "invitations";
   const t = await getTranslations("admin");
   const admin = createAdminClient();
 
@@ -100,7 +105,7 @@ export default async function AdminPage({ params }: Props) {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{t("title")}</h1>
 
-      <Tabs defaultValue="invitations" orientation="vertical">
+      <Tabs defaultValue={defaultTab} orientation="vertical">
         <TabsList className="w-44 shrink-0">
           <TabsTrigger value="invitations">{t("tabs.invitations")}</TabsTrigger>
           <TabsTrigger value="matches">{t("tabs.matches")}</TabsTrigger>

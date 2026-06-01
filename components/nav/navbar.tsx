@@ -4,6 +4,7 @@ import { LocaleSwitcher } from "./locale-switcher";
 import { LogoutButton } from "./logout-button";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./mobile-nav";
+import { AdminDropdown } from "./admin-dropdown";
 
 interface NavBarProps {
   locale: string;
@@ -59,7 +60,7 @@ export function NavBar({ locale, displayName, isAdmin, profileUserId, t }: NavBa
             <NavLink href={`/${locale}/profile/${profileUserId}`}>{t.profile}</NavLink>
           )}
           {isAdmin && (
-            <NavLink href={`/${locale}/admin`}>{t.admin}</NavLink>
+            <AdminDropdown label={t.admin} />
           )}
         </div>
 
