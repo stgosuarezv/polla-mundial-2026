@@ -99,9 +99,6 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("points")}
                 </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("prize")}
-                </th>
                 <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground sm:table-cell">
                   {t("hits")}
                 </th>
@@ -110,6 +107,9 @@ export default async function ScoreboardPage({ params }: Props) {
                 </th>
                 <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground md:table-cell">
                   {t("gap")}
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  {t("prize")}
                 </th>
               </tr>
             </thead>
@@ -146,16 +146,6 @@ export default async function ScoreboardPage({ params }: Props) {
                     <td className="px-3 py-2.5 text-right font-bold text-primary">
                       {row.totalPoints}
                     </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2.5 text-right whitespace-nowrap",
-                        row.rank <= PRIZES_CLP.length
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {prize}
-                    </td>
                     <td className="hidden px-3 py-2.5 text-right text-muted-foreground sm:table-cell">
                       {row.matchesHit}
                     </td>
@@ -166,6 +156,16 @@ export default async function ScoreboardPage({ params }: Props) {
                       {row.deltaFromLeader < 0
                         ? `${row.deltaFromLeader}`
                         : "—"}
+                    </td>
+                    <td
+                      className={cn(
+                        "px-3 py-2.5 text-right whitespace-nowrap",
+                        row.rank <= PRIZES_CLP.length
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {prize}
                     </td>
                   </tr>
                 );
