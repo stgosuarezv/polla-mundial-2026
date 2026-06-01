@@ -100,8 +100,8 @@ export default async function AdminPage({ params }: Props) {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{t("title")}</h1>
 
-      <Tabs defaultValue="invitations">
-        <TabsList className="flex-wrap">
+      <Tabs defaultValue="invitations" orientation="vertical">
+        <TabsList className="w-44 shrink-0">
           <TabsTrigger value="invitations">{t("tabs.invitations")}</TabsTrigger>
           <TabsTrigger value="matches">{t("tabs.matches")}</TabsTrigger>
           <TabsTrigger value="rounds">{t("tabs.rounds")}</TabsTrigger>
@@ -110,27 +110,27 @@ export default async function AdminPage({ params }: Props) {
           <TabsTrigger value="audit">{t("tabs.audit")}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="invitations" className="mt-4">
+        <TabsContent value="invitations" className="mt-0">
           <InviteSection invitations={invitations ?? []} locale={locale} />
         </TabsContent>
 
-        <TabsContent value="matches" className="mt-4">
+        <TabsContent value="matches" className="mt-0">
           <MatchesSection rounds={rounds ?? []} />
         </TabsContent>
 
-        <TabsContent value="rounds" className="mt-4">
+        <TabsContent value="rounds" className="mt-0">
           <RoundsSection rounds={roundsWithCeiling} />
         </TabsContent>
 
-        <TabsContent value="users" className="mt-4">
+        <TabsContent value="users" className="mt-0">
           <UsersSection users={profiles ?? []} />
         </TabsContent>
 
-        <TabsContent value="sync" className="mt-4">
+        <TabsContent value="sync" className="mt-0">
           <SyncSection />
         </TabsContent>
 
-        <TabsContent value="audit" className="mt-4">
+        <TabsContent value="audit" className="mt-0">
           <AuditSection
             matchEntries={auditEntries ?? []}
             roundEntries={roundAuditEntries ?? []}
