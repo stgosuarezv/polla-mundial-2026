@@ -120,7 +120,8 @@
       "resultExists": "Already invited",
       "resultSendFailed": "Email failed: {error}",
       "resultInvalid": "Invalid email",
-      "resultServerError": "Server error: {error}"
+      "resultServerError": "Server error: {error}",
+      "revokeFailed": "Could not revoke invitation: {error}"
     },
     "matches": {
       "status": "Status",

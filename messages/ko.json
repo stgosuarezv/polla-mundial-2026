@@ -120,7 +120,8 @@
       "resultExists": "이미 초대됨",
       "resultSendFailed": "발송 실패: {error}",
       "resultInvalid": "잘못된 이메일",
-      "resultServerError": "서버 오류: {error}"
+      "resultServerError": "서버 오류: {error}",
+      "revokeFailed": "초대 취소 실패: {error}"
     },
     "matches": {
       "status": "상태",

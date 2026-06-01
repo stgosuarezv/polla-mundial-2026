@@ -120,7 +120,8 @@
       "resultExists": "Ya invitado",
       "resultSendFailed": "Envío falló: {error}",
       "resultInvalid": "Correo inválido",
-      "resultServerError": "Error del servidor: {error}"
+      "resultServerError": "Error del servidor: {error}",
+      "revokeFailed": "No se pudo revocar la invitación: {error}"
     },
     "matches": {
       "status": "Estado",

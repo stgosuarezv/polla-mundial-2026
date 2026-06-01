@@ -22,6 +22,7 @@ interface InviteResult {
   email: string;
   status: "sent" | "exists" | "sendFailed" | "invalid" | "serverError";
   message?: string;
+  id?: string;
 }
 
 function parseEmails(input: string): { valid: string[]; invalid: string[] } {
@@ -47,6 +48,7 @@ export function InviteSection({ invitations: initial, locale }: Props) {
   const [invitations, setInvitations] = useState(initial);
   const [emailsInput, setEmailsInput] = useState("");
   const [results, setResults] = useState<InviteResult[]>([]);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const { valid, invalid } = useMemo(() => parseEmails(emailsInput), [emailsInput]);
@@ -69,9 +71,10 @@ export function InviteSection({ invitations: initial, locale }: Props) {
               email,
               status: "sendFailed" as const,
               message: r.data!.emailError ?? undefined,
+              id: r.data!.id,
             };
           }
-          return { email, status: "sent" as const };
+          return { email, status: "sent" as const, id: r.data!.id };
         })
       );
 
@@ -84,9 +87,9 @@ export function InviteSection({ invitations: initial, locale }: Props) {
       setResults(allResults);
 
       const newlyInvited = settled
-        .filter((r) => r.status === "sent" || r.status === "sendFailed")
-        .map((r, i) => ({
-          id: `optimistic-${Date.now()}-${i}`,
+        .filter((r) => r.id && (r.status === "sent" || r.status === "sendFailed"))
+        .map((r) => ({
+          id: r.id!,
           email: r.email,
           accepted_at: null,
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
@@ -101,10 +104,13 @@ export function InviteSection({ invitations: initial, locale }: Props) {
   }
 
   function handleRevoke(id: string) {
+    setRevokeError(null);
     startTransition(async () => {
       const result = await revokeInvitation(id);
       if (result.ok) {
         setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+      } else {
+        setRevokeError(result.error);
       }
     });
   }
@@ -206,6 +212,11 @@ export function InviteSection({ invitations: initial, locale }: Props) {
               </tbody>
             </table>
           </div>
+        )}
+        {revokeError && (
+          <p className="mt-2 text-sm text-destructive">
+            {t("revokeFailed", { error: revokeError })}
+          </p>
         )}
       </div>
 
