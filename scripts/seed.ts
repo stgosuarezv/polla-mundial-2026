@@ -14,6 +14,29 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 
+function etMidnightOfKickoff(iso: string): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(new Date(iso));
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  for (const off of ["-04:00", "-05:00"]) {
+    const candidate = new Date(`${y}-${m}-${d}T00:00:00${off}`);
+    const hh = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "2-digit",
+      hour12: false,
+    }).format(candidate);
+    if (hh === "00") return candidate.toISOString();
+  }
+  throw new Error(`Cannot compute ET midnight for ${iso}`);
+}
+
 // ── Supabase admin client (bypasses RLS) ──────────────────────────────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -292,7 +315,7 @@ async function main() {
       stage: "group",
       name_key: `rounds.group_${i + 1}`,
       order_index: i + 1,
-      lock_time: earliest!,
+      lock_time: etMidnightOfKickoff(earliest!),
     });
   });
 
@@ -310,7 +333,7 @@ async function main() {
       continue;
     }
     const earliest = matches.map((m) => m.utcDate).sort()[0];
-    roundRows.push({ stage: "knockout", ...meta, lock_time: earliest! });
+    roundRows.push({ stage: "knockout", ...meta, lock_time: etMidnightOfKickoff(earliest!) });
   }
 
   // Podio round — locks at same time as Round of 32

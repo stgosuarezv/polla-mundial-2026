@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InviteSection } from "@/components/admin/invite-section";
 import { MatchesSection } from "@/components/admin/matches-section";
+import { RoundsSection } from "@/components/admin/rounds-section";
 import { SyncSection } from "@/components/admin/sync-section";
 import { AuditSection } from "@/components/admin/audit-section";
 import { UsersSection } from "@/components/admin/users-section";
@@ -57,6 +58,44 @@ export default async function AdminPage({ params }: Props) {
     .order("changed_at", { ascending: false })
     .limit(50);
 
+  const { data: roundAuditEntries } = await admin
+    .from("round_audit")
+    .select(
+      `id, changed_at, old_value, new_value,
+       round:round_id ( name_key ),
+       changer:changed_by ( display_name )`
+    )
+    .order("changed_at", { ascending: false })
+    .limit(50);
+
+  // ── Rounds for lock-time editor ───────────────────────────────────────────────
+  const { data: roundsForLock } = await admin
+    .from("rounds")
+    .select("id, name_key, order_index, stage, lock_time, matches(kickoff_at)")
+    .order("order_index", { ascending: true });
+
+  const roundsIntermediate = (roundsForLock ?? []).map((r) => {
+    const kickoffs = ((r.matches as { kickoff_at: string }[] | null) ?? [])
+      .map((m) => m.kickoff_at)
+      .filter(Boolean)
+      .sort();
+    return {
+      id: r.id,
+      name_key: r.name_key,
+      order_index: r.order_index,
+      stage: r.stage,
+      lock_time: r.lock_time,
+      first_kickoff: kickoffs[0] ?? "",
+    };
+  });
+  const r32Ceiling =
+    roundsIntermediate.find((r) => r.name_key === "rounds.knockout_r32")
+      ?.first_kickoff ?? "";
+  const roundsWithCeiling = roundsIntermediate.map((r) => ({
+    ...r,
+    first_kickoff: r.first_kickoff || r32Ceiling,
+  }));
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{t("title")}</h1>
@@ -65,6 +104,7 @@ export default async function AdminPage({ params }: Props) {
         <TabsList className="flex-wrap">
           <TabsTrigger value="invitations">{t("tabs.invitations")}</TabsTrigger>
           <TabsTrigger value="matches">{t("tabs.matches")}</TabsTrigger>
+          <TabsTrigger value="rounds">{t("tabs.rounds")}</TabsTrigger>
           <TabsTrigger value="users">{t("tabs.users")}</TabsTrigger>
           <TabsTrigger value="sync">{t("tabs.sync")}</TabsTrigger>
           <TabsTrigger value="audit">{t("tabs.audit")}</TabsTrigger>
@@ -78,6 +118,10 @@ export default async function AdminPage({ params }: Props) {
           <MatchesSection rounds={rounds ?? []} />
         </TabsContent>
 
+        <TabsContent value="rounds" className="mt-4">
+          <RoundsSection rounds={roundsWithCeiling} />
+        </TabsContent>
+
         <TabsContent value="users" className="mt-4">
           <UsersSection users={profiles ?? []} />
         </TabsContent>
@@ -87,7 +131,10 @@ export default async function AdminPage({ params }: Props) {
         </TabsContent>
 
         <TabsContent value="audit" className="mt-4">
-          <AuditSection entries={auditEntries ?? []} />
+          <AuditSection
+            matchEntries={auditEntries ?? []}
+            roundEntries={roundAuditEntries ?? []}
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -92,7 +92,8 @@
       "matches": "경기",
       "users": "사용자",
       "sync": "동기화",
-      "audit": "감사 로그"
+      "audit": "감사 로그",
+      "rounds": "라운드"
     },
     "users": {
       "save": "저장",
@@ -139,12 +140,30 @@
       "rescoreSuccess": "재채점 완료: {updated}개 예측 업데이트됨."
     },
     "audit": {
-      "title": "최근 변경사항",
+      "title": "경기 변경사항",
       "changedBy": "변경자",
       "changedAt": "시간",
       "match": "경기",
       "empty": "감사 항목이 없습니다.",
-      "changes": "변경 내역"
+      "changes": "변경 내역",
+      "roundChangesTitle": "라운드 마감 변경",
+      "round": "라운드",
+      "deadlineChange": "마감",
+      "roundEmpty": "라운드 변경사항이 없습니다."
+    },
+    "rounds": {
+      "title": "라운드 마감 시간",
+      "description": "각 라운드는 첫 경기 당일 미국 동부 시간 00:00에 기본 마감됩니다. 마감을 앞당길 수만 있으며, 늦출 수는 없습니다.",
+      "round": "라운드",
+      "currentDeadline": "현재 마감",
+      "newDeadline": "새 마감",
+      "ceiling": "최대: {time}",
+      "locked": "마감됨",
+      "save": "저장",
+      "saving": "저장 중…",
+      "saved": "저장됨",
+      "errorAfterKickoff": "마감 시간은 첫 경기 킥오프 이후로 설정할 수 없습니다.",
+      "errorGeneric": "저장 오류"
     }
   },
   "profile": {

@@ -92,7 +92,8 @@
       "matches": "Partidos",
       "users": "Usuarios",
       "sync": "Sincronizar",
-      "audit": "Auditoría"
+      "audit": "Auditoría",
+      "rounds": "Rondas"
     },
     "users": {
       "save": "Guardar",
@@ -139,12 +140,30 @@
       "rescoreSuccess": "Recalculado: {updated} predicciones actualizadas."
     },
     "audit": {
-      "title": "Cambios recientes",
+      "title": "Cambios en partidos",
       "changedBy": "Por",
       "changedAt": "Cuándo",
       "match": "Partido",
       "empty": "Sin entradas de auditoría.",
-      "changes": "Cambios"
+      "changes": "Cambios",
+      "roundChangesTitle": "Cambios de plazos",
+      "round": "Ronda",
+      "deadlineChange": "plazo",
+      "roundEmpty": "Sin cambios de plazos aún."
+    },
+    "rounds": {
+      "title": "Plazos de cada ronda",
+      "description": "Cada ronda se cierra por defecto a las 00:00 ET del día del primer partido. Puedes adelantar el plazo, nunca atrasarlo.",
+      "round": "Ronda",
+      "currentDeadline": "Plazo actual",
+      "newDeadline": "Nuevo plazo",
+      "ceiling": "Máximo: {time}",
+      "locked": "Cerrada",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "errorAfterKickoff": "El plazo no puede ser posterior al primer partido.",
+      "errorGeneric": "Error al guardar"
     }
   },
   "profile": {

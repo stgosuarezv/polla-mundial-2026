@@ -92,7 +92,8 @@
       "matches": "Matches",
       "users": "Users",
       "sync": "Sync & Rescore",
-      "audit": "Audit Log"
+      "audit": "Audit Log",
+      "rounds": "Rounds"
     },
     "users": {
       "save": "Save",
@@ -139,12 +140,30 @@
       "rescoreSuccess": "Rescored: {updated} predictions updated."
     },
     "audit": {
-      "title": "Recent changes",
+      "title": "Match changes",
       "changedBy": "By",
       "changedAt": "When",
       "match": "Match",
       "empty": "No audit entries yet.",
-      "changes": "Changes"
+      "changes": "Changes",
+      "roundChangesTitle": "Round deadline changes",
+      "round": "Round",
+      "deadlineChange": "deadline",
+      "roundEmpty": "No round changes yet."
+    },
+    "rounds": {
+      "title": "Round deadlines",
+      "description": "Each round defaults to 00:00 ET on the day of its first match. You can move a deadline earlier, never later.",
+      "round": "Round",
+      "currentDeadline": "Current deadline",
+      "newDeadline": "New deadline",
+      "ceiling": "Max: {time}",
+      "locked": "Locked",
+      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "errorAfterKickoff": "Deadline cannot be after first kickoff.",
+      "errorGeneric": "Error saving"
     }
   },
   "profile": {

@@ -231,6 +231,87 @@ export async function updateUserDisplayName(
   return { ok: true, data: { userId, displayName } };
 }
 
+// ── Update round lock_time ─────────────────────────────────────────────────────
+
+const UpdateRoundLockTimeSchema = z.object({
+  roundId: z.string().uuid(),
+  lockTime: z.string().datetime(),
+});
+
+export async function updateRoundLockTime(
+  input: z.infer<typeof UpdateRoundLockTimeSchema>
+): Promise<ActionResult<{ roundId: string; lockTime: string }>> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const parsed = UpdateRoundLockTimeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const { roundId, lockTime } = parsed.data;
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: oldRound } = await admin
+    .from("rounds")
+    .select("stage, lock_time")
+    .eq("id", roundId)
+    .single();
+  if (!oldRound) return { ok: false, error: "notFound" };
+
+  // Ceiling = earliest kickoff in this round; podio falls back to R32
+  let ceilingIso: string | null = null;
+  const { data: minRow } = await admin
+    .from("matches")
+    .select("kickoff_at")
+    .eq("round_id", roundId)
+    .order("kickoff_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (minRow) {
+    ceilingIso = minRow.kickoff_at;
+  } else if (oldRound.stage === "podio") {
+    const { data: r32 } = await admin
+      .from("rounds")
+      .select("id")
+      .eq("name_key", "rounds.knockout_r32")
+      .single();
+    if (r32) {
+      const { data: r32Min } = await admin
+        .from("matches")
+        .select("kickoff_at")
+        .eq("round_id", r32.id)
+        .order("kickoff_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      ceilingIso = r32Min?.kickoff_at ?? null;
+    }
+  }
+  if (!ceilingIso) return { ok: false, error: "noCeiling" };
+
+  if (new Date(lockTime).getTime() > new Date(ceilingIso).getTime()) {
+    return { ok: false, error: "afterKickoff" };
+  }
+
+  const { error } = await admin
+    .from("rounds")
+    .update({ lock_time: lockTime })
+    .eq("id", roundId);
+  if (error) return { ok: false, error: error.message };
+
+  await admin.from("round_audit").insert({
+    round_id: roundId,
+    changed_by: user!.id,
+    old_value: { lock_time: oldRound.lock_time },
+    new_value: { lock_time: lockTime },
+  });
+
+  return { ok: true, data: { roundId, lockTime } };
+}
+
 // ── Sync from football-data.org ────────────────────────────────────────────────
 
 export async function syncFromFootballData(): Promise<
