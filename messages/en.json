@@ -103,18 +103,24 @@
       "insertEmoji": "Insert emoji"
     },
     "invitations": {
-      "inviteTitle": "Invite a user",
-      "emailPlaceholder": "user@example.com",
-      "sendInvite": "Send invite",
+      "inviteTitle": "Invite users",
+      "bulkLabel": "Emails (one per line, comma, or semicolon)",
+      "bulkPlaceholder": "juan@example.com\nmaria@example.com",
+      "detected": "{count, plural, =0 {No emails detected} one {# email detected} other {# emails detected}}",
+      "invalidCount": "{count, plural, one {, # invalid} other {, # invalid}}",
+      "sendInvites": "Send invites",
       "sending": "Sending…",
       "pending": "Pending invitations",
       "noPending": "No pending invitations.",
       "revoke": "Revoke",
       "accepted": "Accepted",
       "expires": "Expires",
-      "sentTo": "Invitation sent to {email}.",
-      "warnNoApiKey": "Saved, but email was not sent (Resend API key is not configured on the server).",
-      "warnSendFailed": "Saved, but email failed: {error}"
+      "summary": "{sent} sent, {failed} failed",
+      "resultSent": "Sent",
+      "resultExists": "Already invited",
+      "resultSendFailed": "Email failed: {error}",
+      "resultInvalid": "Invalid email",
+      "resultServerError": "Server error: {error}"
     },
     "matches": {
       "status": "Status",

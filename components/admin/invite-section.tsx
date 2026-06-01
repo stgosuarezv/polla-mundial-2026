@@ -1,9 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { createInvitation, revokeInvitation } from "@/lib/actions/invitations";
 
 interface Invitation {
@@ -19,45 +18,84 @@ interface Props {
   locale: string;
 }
 
+interface InviteResult {
+  email: string;
+  status: "sent" | "exists" | "sendFailed" | "invalid" | "serverError";
+  message?: string;
+}
+
+function parseEmails(input: string): { valid: string[]; invalid: string[] } {
+  const tokens = input
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  const invalid: string[] = [];
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  for (const t of tokens) {
+    const lower = t.toLowerCase();
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    (re.test(t) ? valid : invalid).push(t);
+  }
+  return { valid, invalid };
+}
+
 export function InviteSection({ invitations: initial, locale }: Props) {
   const t = useTranslations("admin.invitations");
   const [invitations, setInvitations] = useState(initial);
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [warnMsg, setWarnMsg] = useState<string | null>(null);
+  const [emailsInput, setEmailsInput] = useState("");
+  const [results, setResults] = useState<InviteResult[]>([]);
   const [isPending, startTransition] = useTransition();
+
+  const { valid, invalid } = useMemo(() => parseEmails(emailsInput), [emailsInput]);
 
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccessMsg(null);
-    setWarnMsg(null);
+    if (valid.length === 0) return;
+    setResults([]);
 
     startTransition(async () => {
-      const result = await createInvitation(email, locale);
-      if (!result.ok) {
-        setError(result.error);
-      } else {
-        const sentEmail = email;
-        setEmail("");
-        setInvitations((prev) => [
-          {
-            id: result.data!.id,
-            email: sentEmail,
-            accepted_at: null,
-            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-            created_at: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
-        if (result.data!.emailSent) {
-          setSuccessMsg(t("sentTo", { email: sentEmail }));
-        } else if (result.data!.emailError === "missingApiKey") {
-          setWarnMsg(t("warnNoApiKey"));
-        } else {
-          setWarnMsg(t("warnSendFailed", { error: result.data!.emailError ?? "" }));
-        }
+      const settled = await Promise.all(
+        valid.map(async (email) => {
+          const r = await createInvitation(email, locale);
+          if (!r.ok) {
+            const status = r.error.includes("already exists") ? "exists" : "serverError";
+            return { email, status, message: r.error } as InviteResult;
+          }
+          if (!r.data!.emailSent) {
+            return {
+              email,
+              status: "sendFailed" as const,
+              message: r.data!.emailError ?? undefined,
+            };
+          }
+          return { email, status: "sent" as const };
+        })
+      );
+
+      const invalidResults: InviteResult[] = invalid.map((email) => ({
+        email,
+        status: "invalid",
+      }));
+
+      const allResults = [...settled, ...invalidResults];
+      setResults(allResults);
+
+      const newlyInvited = settled
+        .filter((r) => r.status === "sent" || r.status === "sendFailed")
+        .map((r, i) => ({
+          id: `optimistic-${Date.now()}-${i}`,
+          email: r.email,
+          accepted_at: null,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString(),
+        }));
+
+      if (newlyInvited.length > 0) {
+        setInvitations((prev) => [...newlyInvited, ...prev]);
+        setEmailsInput("");
       }
     });
   }
@@ -71,6 +109,9 @@ export function InviteSection({ invitations: initial, locale }: Props) {
     });
   }
 
+  const sent = results.filter((r) => r.status === "sent").length;
+  const failed = results.filter((r) => r.status !== "sent").length;
+
   const pending = invitations.filter((inv) => !inv.accepted_at);
   const accepted = invitations.filter((inv) => inv.accepted_at);
 
@@ -79,22 +120,60 @@ export function InviteSection({ invitations: initial, locale }: Props) {
       {/* Invite form */}
       <div className="rounded-lg border p-4">
         <h2 className="mb-3 font-semibold">{t("inviteTitle")}</h2>
-        <form onSubmit={handleInvite} className="flex gap-2">
-          <Input
-            type="email"
-            placeholder={t("emailPlaceholder")}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="max-w-xs"
+        <form onSubmit={handleInvite} className="space-y-2">
+          <label className="text-sm text-muted-foreground">{t("bulkLabel")}</label>
+          <textarea
+            rows={4}
+            placeholder={t("bulkPlaceholder")}
+            value={emailsInput}
+            onChange={(e) => {
+              setEmailsInput(e.target.value);
+              setResults([]);
+            }}
+            className="w-full max-w-md rounded border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          <Button type="submit" disabled={isPending}>
-            {isPending ? t("sending") : t("sendInvite")}
-          </Button>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-muted-foreground">
+              {t("detected", { count: valid.length })}
+              {invalid.length > 0 && t("invalidCount", { count: invalid.length })}
+            </span>
+            <Button type="submit" disabled={isPending || valid.length === 0}>
+              {isPending ? t("sending") : t("sendInvites")}
+            </Button>
+          </div>
         </form>
-        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-        {successMsg && <p className="mt-2 text-sm text-green-600">{successMsg}</p>}
-        {warnMsg && <p className="mt-2 text-sm text-amber-600">{warnMsg}</p>}
+
+        {results.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-muted-foreground">
+              {t("summary", { sent, failed })}
+            </p>
+            <div className="overflow-x-auto rounded border">
+              <table className="w-full text-xs">
+                <tbody className="divide-y">
+                  {results.map((r) => (
+                    <tr key={r.email} className="hover:bg-muted/20">
+                      <td className="px-3 py-1.5">{r.email}</td>
+                      <td className={`px-3 py-1.5 font-medium ${
+                        r.status === "sent"
+                          ? "text-green-600"
+                          : r.status === "invalid" || r.status === "serverError"
+                          ? "text-destructive"
+                          : "text-amber-600"
+                      }`}>
+                        {r.status === "sent" && t("resultSent")}
+                        {r.status === "exists" && t("resultExists")}
+                        {r.status === "sendFailed" && t("resultSendFailed", { error: r.message ?? "" })}
+                        {r.status === "invalid" && t("resultInvalid")}
+                        {r.status === "serverError" && t("resultServerError", { error: r.message ?? "" })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Pending list */}

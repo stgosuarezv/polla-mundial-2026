@@ -103,18 +103,24 @@
       "insertEmoji": "Insertar emoji"
     },
     "invitations": {
-      "inviteTitle": "Invitar usuario",
-      "emailPlaceholder": "usuario@ejemplo.com",
-      "sendInvite": "Enviar invitación",
+      "inviteTitle": "Invitar usuarios",
+      "bulkLabel": "Correos (uno por línea, coma o punto y coma)",
+      "bulkPlaceholder": "juan@ejemplo.com\nmaria@ejemplo.com",
+      "detected": "{count, plural, =0 {Sin correos detectados} one {# correo detectado} other {# correos detectados}}",
+      "invalidCount": "{count, plural, one {, # inválido} other {, # inválidos}}",
+      "sendInvites": "Enviar invitaciones",
       "sending": "Enviando…",
       "pending": "Invitaciones pendientes",
       "noPending": "No hay invitaciones pendientes.",
       "revoke": "Revocar",
       "accepted": "Aceptada",
       "expires": "Vence",
-      "sentTo": "Invitación enviada a {email}.",
-      "warnNoApiKey": "Guardada, pero no se envió el correo (la clave de Resend no está configurada en el servidor).",
-      "warnSendFailed": "Guardada, pero falló el envío: {error}"
+      "summary": "{sent} enviadas, {failed} fallaron",
+      "resultSent": "Enviada",
+      "resultExists": "Ya invitado",
+      "resultSendFailed": "Envío falló: {error}",
+      "resultInvalid": "Correo inválido",
+      "resultServerError": "Error del servidor: {error}"
     },
     "matches": {
       "status": "Estado",

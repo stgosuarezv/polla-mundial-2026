@@ -104,17 +104,23 @@
     },
     "invitations": {
       "inviteTitle": "사용자 초대",
-      "emailPlaceholder": "user@example.com",
-      "sendInvite": "초대 보내기",
+      "bulkLabel": "이메일 (한 줄에 하나, 쉼표 또는 세미콜론으로 구분)",
+      "bulkPlaceholder": "juan@example.com\nmaria@example.com",
+      "detected": "감지된 이메일 {count}개",
+      "invalidCount": ", 잘못된 이메일 {count}개",
+      "sendInvites": "초대 보내기",
       "sending": "전송 중…",
       "pending": "대기 중인 초대",
       "noPending": "대기 중인 초대가 없습니다.",
       "revoke": "취소",
       "accepted": "수락됨",
       "expires": "만료",
-      "sentTo": "{email}(으)로 초대를 보냈습니다.",
-      "warnNoApiKey": "저장되었지만 이메일은 발송되지 않았습니다 (서버에 Resend API 키가 설정되지 않음).",
-      "warnSendFailed": "저장되었지만 발송 실패: {error}"
+      "summary": "{sent}건 전송, {failed}건 실패",
+      "resultSent": "전송됨",
+      "resultExists": "이미 초대됨",
+      "resultSendFailed": "발송 실패: {error}",
+      "resultInvalid": "잘못된 이메일",
+      "resultServerError": "서버 오류: {error}"
     },
     "matches": {
       "status": "상태",
