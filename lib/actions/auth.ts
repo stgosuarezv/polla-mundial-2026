@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppOrigin } from "@/lib/app-url";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -168,11 +169,10 @@ export async function forgotPassword(
   }
 
   const { email, locale } = parsed.data;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const supabase = await createClient();
 
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${appUrl}/api/auth/callback?next=/${locale}/reset-password`,
+    redirectTo: `${getAppOrigin()}/api/auth/callback?next=/${locale}/reset-password`,
   });
 
   // Always return ok to avoid email enumeration

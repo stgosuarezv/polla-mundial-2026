@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resend, FROM_EMAIL } from "@/lib/email/resend";
+import { getAppOrigin } from "@/lib/app-url";
 import { randomUUID } from "crypto";
 
 type ActionResult<T = undefined> =
@@ -47,8 +48,7 @@ export async function createInvitation(
   const { data: { user } } = await supabase.auth.getUser();
 
   const token = randomUUID();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const signupUrl = `${appUrl}/${locale}/signup?token=${token}`;
+  const signupUrl = `${getAppOrigin()}/${locale}/signup?token=${token}`;
 
   const { data: invitation, error: insertErr } = await admin
     .from("invitations")
