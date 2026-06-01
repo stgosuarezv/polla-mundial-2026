@@ -35,7 +35,7 @@ const InviteSchema = z.object({
 export async function createInvitation(
   email: string,
   locale = "es"
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; emailSent: boolean; emailError: string | null }>> {
   const guard = await requireAdmin();
   if (guard) return guard;
 
@@ -68,8 +68,9 @@ export async function createInvitation(
   }
 
   // Send invitation email via Resend
+  let emailError: string | null = null;
   if (process.env.RESEND_API_KEY) {
-    await resend.emails.send({
+    const { error: sendErr } = await resend.emails.send({
       from: FROM_EMAIL,
       to: parsed.data.email,
       subject: "Te invitan a Polla Mundial 2026",
@@ -80,9 +81,21 @@ export async function createInvitation(
         <p>Este enlace expira en 7 días.</p>
       `,
     });
+    if (sendErr) {
+      console.error("[createInvitation] Resend send failed", {
+        to: parsed.data.email,
+        from: FROM_EMAIL,
+        name: sendErr.name,
+        message: sendErr.message,
+      });
+      emailError = sendErr.message;
+    }
+  } else {
+    console.warn("[createInvitation] RESEND_API_KEY not set; skipping email send");
+    emailError = "missingApiKey";
   }
 
-  return { ok: true, data: { id: invitation!.id } };
+  return { ok: true, data: { id: invitation!.id, emailSent: emailError === null, emailError } };
 }
 
 // ── Revoke invitation ─────────────────────────────────────────────────────────

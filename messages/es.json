@@ -111,7 +111,10 @@
       "noPending": "No hay invitaciones pendientes.",
       "revoke": "Revocar",
       "accepted": "Aceptada",
-      "expires": "Vence"
+      "expires": "Vence",
+      "sentTo": "Invitación enviada a {email}.",
+      "warnNoApiKey": "Guardada, pero no se envió el correo (la clave de Resend no está configurada en el servidor).",
+      "warnSendFailed": "Guardada, pero falló el envío: {error}"
     },
     "matches": {
       "status": "Estado",

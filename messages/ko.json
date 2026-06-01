@@ -111,7 +111,10 @@
       "noPending": "대기 중인 초대가 없습니다.",
       "revoke": "취소",
       "accepted": "수락됨",
-      "expires": "만료"
+      "expires": "만료",
+      "sentTo": "{email}(으)로 초대를 보냈습니다.",
+      "warnNoApiKey": "저장되었지만 이메일은 발송되지 않았습니다 (서버에 Resend API 키가 설정되지 않음).",
+      "warnSendFailed": "저장되었지만 발송 실패: {error}"
     },
     "matches": {
       "status": "상태",

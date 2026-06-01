@@ -24,32 +24,40 @@ export function InviteSection({ invitations: initial, locale }: Props) {
   const [invitations, setInvitations] = useState(initial);
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [warnMsg, setWarnMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSuccess(false);
+    setSuccessMsg(null);
+    setWarnMsg(null);
 
     startTransition(async () => {
       const result = await createInvitation(email, locale);
       if (!result.ok) {
         setError(result.error);
       } else {
-        setSuccess(true);
+        const sentEmail = email;
         setEmail("");
-        // Optimistically add to pending list
         setInvitations((prev) => [
           {
             id: result.data!.id,
-            email,
+            email: sentEmail,
             accepted_at: null,
             expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
             created_at: new Date().toISOString(),
           },
           ...prev,
         ]);
+        if (result.data!.emailSent) {
+          setSuccessMsg(t("sentTo", { email: sentEmail }));
+        } else if (result.data!.emailError === "missingApiKey") {
+          setWarnMsg(t("warnNoApiKey"));
+        } else {
+          setWarnMsg(t("warnSendFailed", { error: result.data!.emailError ?? "" }));
+        }
       }
     });
   }
@@ -85,9 +93,8 @@ export function InviteSection({ invitations: initial, locale }: Props) {
           </Button>
         </form>
         {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-        {success && (
-          <p className="mt-2 text-sm text-green-600">Invitation sent.</p>
-        )}
+        {successMsg && <p className="mt-2 text-sm text-green-600">{successMsg}</p>}
+        {warnMsg && <p className="mt-2 text-sm text-amber-600">{warnMsg}</p>}
       </div>
 
       {/* Pending list */}

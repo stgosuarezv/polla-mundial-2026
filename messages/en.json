@@ -111,7 +111,10 @@
       "noPending": "No pending invitations.",
       "revoke": "Revoke",
       "accepted": "Accepted",
-      "expires": "Expires"
+      "expires": "Expires",
+      "sentTo": "Invitation sent to {email}.",
+      "warnNoApiKey": "Saved, but email was not sent (Resend API key is not configured on the server).",
+      "warnSendFailed": "Saved, but email failed: {error}"
     },
     "matches": {
       "status": "Status",
