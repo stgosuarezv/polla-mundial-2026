@@ -1,4 +1,6 @@
 import Image from "next/image";
+import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/nav/theme-toggle";
 import type { ReactNode } from "react";
@@ -8,7 +10,10 @@ interface AuthCardProps {
   children: ReactNode;
 }
 
-export function AuthCard({ title, children }: AuthCardProps) {
+export async function AuthCard({ title, children }: AuthCardProps) {
+  const locale = await getLocale();
+  const tNav = await getTranslations("nav");
+
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <header
@@ -29,7 +34,15 @@ export function AuthCard({ title, children }: AuthCardProps) {
             </span>
             <span className="font-bold tracking-tight">Polla 2026</span>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${locale}/rules`}
+              className="whitespace-nowrap rounded px-2 py-1 text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              {tNav("rules")}
+            </Link>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

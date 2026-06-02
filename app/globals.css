@@ -22,6 +22,8 @@
   --color-ring: #E10F1E;
   --color-card: #FFFFFF;
   --color-card-foreground: #0A0A0A;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0A0A0A;
   --color-destructive: #E10F1E;
   --color-destructive-foreground: #FFFFFF;
   --color-success: #1EA64F;
@@ -40,6 +42,8 @@
   --color-foreground: #F5F0E6;
   --color-card: #1A2855;
   --color-card-foreground: #F5F0E6;
+  --color-popover: #1A2855;
+  --color-popover-foreground: #F5F0E6;
   --color-muted: #243260;
   --color-muted-foreground: #A8B0C4;
   --color-border: #2E3D7A;

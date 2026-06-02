@@ -28,6 +28,7 @@ interface MobileNavProps {
 export function MobileNav({ locale, isAdmin, profileUserId, t }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const isAuthed = profileUserId !== "";
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -40,19 +41,23 @@ export function MobileNav({ locale, isAdmin, profileUserId, t }: MobileNavProps)
       <SheetContent side="left" className="w-64">
         <SheetTitle className="px-4 pt-4">⚽ Polla 2026</SheetTitle>
         <nav className="mt-4 flex flex-col">
-          <MobileLink href={`/${locale}/predictions`} onClick={close}>
-            {t.predictions}
-          </MobileLink>
-          <MobileLink href={`/${locale}/podio`} onClick={close}>
-            {t.podio}
-          </MobileLink>
-          <MobileLink href={`/${locale}/scoreboard`} onClick={close}>
-            {t.scoreboard}
-          </MobileLink>
+          {isAuthed && (
+            <>
+              <MobileLink href={`/${locale}/predictions`} onClick={close}>
+                {t.predictions}
+              </MobileLink>
+              <MobileLink href={`/${locale}/podio`} onClick={close}>
+                {t.podio}
+              </MobileLink>
+              <MobileLink href={`/${locale}/scoreboard`} onClick={close}>
+                {t.scoreboard}
+              </MobileLink>
+            </>
+          )}
           <MobileLink href={`/${locale}/rules`} onClick={close}>
             {t.rules}
           </MobileLink>
-          {profileUserId && (
+          {isAuthed && (
             <MobileLink href={`/${locale}/profile/${profileUserId}`} onClick={close}>
               {t.profile}
             </MobileLink>
