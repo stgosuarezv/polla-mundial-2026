@@ -16,7 +16,7 @@
 | **Bonus Podio** | Predice Campeón (50 pts), Subcampeón (25 pts) y Tercer lugar (15 pts). Máx. **90 pts**. Puedes guardar y cambiar tus selecciones hasta que se cierre la ventana. |
 | **Ventana del Podio** | Se puede enviar desde el primer día del torneo. Se cierra cuando empieza el primer partido de Dieciseisavos. |
 | **Sin predicción** | Vale 0 puntos y cuenta como cero en el desempate. |
-| **Ranking** | Por puntos totales (partidos + podio). Desempate: más aciertos (≥1 pt) → menos ceros. |
+| **Ranking** | Por puntos totales (partidos + podio). Desempate: más aciertos (pronóstico perfecto — 10 pts en grupos, 25 pts en eliminatorias) → menos ceros. |
 | **Visibilidad** | Tus predicciones son privadas hasta que la ronda cierra. Después todos ven los pronósticos de todos. |
 | **¿Quién gana?** | El jugador con más puntos totales al final del torneo. |
 
@@ -189,8 +189,8 @@ Cada posición se evalúa de forma independiente. Puedes ganar 50 pts solo por e
 El ranking se ordena por **puntos totales** (partidos + podio).
 
 **Desempate (en orden):**
-1. Mayor cantidad de partidos con al menos 1 punto ("aciertos").
-2. Menor cantidad de partidos con 0 puntos ("ceros") — los partidos sin predicción cuentan como cero.
+1. Mayor cantidad de "aciertos" — partidos puntuados al máximo: **10 pts** en fase de grupos, **25 pts** en eliminatorias.
+2. Menor cantidad de partidos con 0 puntos ("ceros") — los partidos sin predicción cuentan como cero. Los puntajes parciales (>0 pero por debajo del máximo del partido) no cuentan como aciertos ni como ceros.
 
 La tabla muestra: posición, nombre, puntos, aciertos, ceros y diferencia con el líder.
 

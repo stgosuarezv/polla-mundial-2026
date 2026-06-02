@@ -16,7 +16,7 @@
 | **Bonus Podium** | Pick Champion (50 pts), Runner-up (25 pts), Third place (15 pts). Max **90 pts**. You can save and update your picks until the window closes. |
 | **Podium window** | Open from the first day of the tournament. Closes when the Round of 32 begins. |
 | **No prediction** | Worth 0 points and counts as zero in tiebreakers. |
-| **Rankings** | By total points (matches + podium). Tiebreaker: most hits (≥1 pt) → fewest zeros. |
+| **Rankings** | By total points (matches + podium). Tiebreaker: most hits (perfect match — 10 pts in group, 25 pts in knockout) → fewest zeros. |
 | **Visibility** | Your predictions are private until the round closes. Afterwards everyone can see everyone's picks. |
 | **Who wins?** | The player with the most total points at the end of the tournament. |
 
@@ -189,8 +189,8 @@ Each position is scored independently. You can earn 50 pts just for the Champion
 The ranking is ordered by **total points** (matches + podium).
 
 **Tiebreaker (in order):**
-1. Most matches with at least 1 point ("hits").
-2. Fewest matches with 0 points ("zeros") — matches with no prediction count as zero.
+1. Most "hits" — matches scored at maximum: **10 pts** in group stage, **25 pts** in knockout.
+2. Fewest matches with 0 points ("zeros") — matches with no prediction count as zero. Partial scores (>0 but below the match maximum) are neither hits nor zeros.
 
 The table shows: rank, name, points, hits, zeros, and gap to the leader.
 

@@ -490,7 +490,9 @@ describe("computeLeaderboard", () => {
   const M1 = "match-1";
   const M2 = "match-2";
   const M3 = "match-3";
-  const finished = [M1, M2, M3];
+  const grp = (id: string) => ({ id, stage: "group" as const });
+  const ko = (id: string) => ({ id, stage: "knockout" as const });
+  const finishedGroup = [grp(M1), grp(M2), grp(M3)];
 
   it("ranks by total points descending", () => {
     const predictions = [
@@ -500,7 +502,7 @@ describe("computeLeaderboard", () => {
       { userId: "bob", matchId: M2, pointsAwarded: 7 },
       { userId: "carol", matchId: M1, pointsAwarded: 5 },
     ];
-    const rows = computeLeaderboard(users, finished, predictions);
+    const rows = computeLeaderboard(users, finishedGroup, predictions);
     expect(rows[0]!.userId).toBe("alice"); // 16 pts
     expect(rows[1]!.userId).toBe("bob");   // 14 pts
     expect(rows[2]!.userId).toBe("carol"); // 5 pts
@@ -511,57 +513,81 @@ describe("computeLeaderboard", () => {
   });
 
   it("unsubmitted predictions count as zero-matches", () => {
-    // Carol has no predictions — all 3 finished matches count as zeros
     const predictions = [
       { userId: "alice", matchId: M1, pointsAwarded: 5 },
     ];
-    const rows = computeLeaderboard([alice, carol], finished, predictions);
+    const rows = computeLeaderboard([alice, carol], finishedGroup, predictions);
     const carolRow = rows.find((r) => r.userId === "carol")!;
     expect(carolRow.zeroMatches).toBe(3);
     expect(carolRow.matchesHit).toBe(0);
   });
 
-  it("tiebreaker 1 — more matches hit wins", () => {
-    // Alice and Bob same total points but Alice hit more matches
+  it("acierto = perfect group match (10/10); partial group score is neither hit nor zero", () => {
     const predictions = [
-      { userId: "alice", matchId: M1, pointsAwarded: 5 },
-      { userId: "alice", matchId: M2, pointsAwarded: 5 },
-      { userId: "bob", matchId: M1, pointsAwarded: 10 },
+      { userId: "alice", matchId: M1, pointsAwarded: 10 }, // perfect → hit
+      { userId: "alice", matchId: M2, pointsAwarded: 5 },  // partial → neither
+      { userId: "alice", matchId: M3, pointsAwarded: 0 },  // zero
     ];
-    const rows = computeLeaderboard([alice, bob], [M1, M2], predictions);
-    expect(rows[0]!.userId).toBe("alice"); // 10 pts, 2 hits
-    expect(rows[1]!.userId).toBe("bob");   // 10 pts, 1 hit
+    const rows = computeLeaderboard([alice], finishedGroup, predictions);
+    expect(rows[0]!.matchesHit).toBe(1);
+    expect(rows[0]!.zeroMatches).toBe(1);
+    expect(rows[0]!.totalPoints).toBe(15);
   });
 
-  it("tiebreaker 2 — fewer zero-matches wins when hits are equal", () => {
-    // Alice and Bob: same points, same hits, Alice has fewer zeros
+  it("acierto = perfect knockout match (25/25); partial knockout score is neither hit nor zero", () => {
     const predictions = [
-      { userId: "alice", matchId: M1, pointsAwarded: 10 },
-      { userId: "alice", matchId: M2, pointsAwarded: 0 },
-      { userId: "bob", matchId: M1, pointsAwarded: 10 },
-      // Bob has no prediction for M2 (counts as zero) and no prediction for M3 (zero)
+      { userId: "alice", matchId: M1, pointsAwarded: 25 }, // perfect → hit
+      { userId: "alice", matchId: M2, pointsAwarded: 19 }, // partial → neither
+      { userId: "alice", matchId: M3, pointsAwarded: 0 },  // zero
     ];
-    const rows = computeLeaderboard([alice, bob], [M1, M2, M3], predictions);
-    // alice: 10 pts, 1 hit, 2 zeros
-    // bob: 10 pts, 1 hit, 2 zeros (M2 submitted=0, M3 unsubmitted=0)
-    // Actually both have 2 zeros — they're tied on all 3 criteria, rank should be shared
-    expect(rows[0]!.rank).toBe(rows[1]!.rank);
+    const finishedKO = [ko(M1), ko(M2), ko(M3)];
+    const rows = computeLeaderboard([alice], finishedKO, predictions);
+    expect(rows[0]!.matchesHit).toBe(1);
+    expect(rows[0]!.zeroMatches).toBe(1);
+    expect(rows[0]!.totalPoints).toBe(44);
   });
 
-  it("tiebreaker 2 — fewer zeros means higher rank", () => {
-    const predictions2 = [
-      { userId: "alice", matchId: M1, pointsAwarded: 10 },
-      { userId: "alice", matchId: M2, pointsAwarded: 5 },
-      // M3 zero (no prediction)
-      { userId: "bob", matchId: M1, pointsAwarded: 10 },
-      { userId: "bob", matchId: M2, pointsAwarded: 0 }, // submitted but 0
-      // M3 zero (no prediction)
+  it("group 10 is a hit; knockout 10 is NOT a hit (max in knockout is 25)", () => {
+    const finishedMix = [grp(M1), ko(M2)];
+    const predictions = [
+      { userId: "alice", matchId: M1, pointsAwarded: 10 }, // perfect group → hit
+      { userId: "alice", matchId: M2, pointsAwarded: 10 }, // partial knockout → neither
     ];
-    const rows2 = computeLeaderboard([alice, bob], [M1, M2, M3], predictions2);
-    // alice: 15 pts, 2 hits, 1 zero
-    // bob: 10 pts, 1 hit, 2 zeros
-    expect(rows2[0]!.userId).toBe("alice");
-    expect(rows2[1]!.userId).toBe("bob");
+    const rows = computeLeaderboard([alice], finishedMix, predictions);
+    expect(rows[0]!.matchesHit).toBe(1);
+    expect(rows[0]!.zeroMatches).toBe(0);
+    expect(rows[0]!.totalPoints).toBe(20);
+  });
+
+  it("tiebreaker 1 — more aciertos (perfect matches) wins", () => {
+    // Both at 10 pts: Alice has 1 perfect group; Bob has 2 partial group matches.
+    const predictions = [
+      { userId: "alice", matchId: M1, pointsAwarded: 10 },
+      { userId: "bob",   matchId: M1, pointsAwarded: 5 },
+      { userId: "bob",   matchId: M2, pointsAwarded: 5 },
+    ];
+    const rows = computeLeaderboard(
+      [alice, bob],
+      [grp(M1), grp(M2)],
+      predictions
+    );
+    expect(rows[0]!.userId).toBe("alice"); // 10 pts, 1 hit
+    expect(rows[1]!.userId).toBe("bob");   // 10 pts, 0 hits
+  });
+
+  it("tiebreaker 2 — fewer zero-matches wins when total + aciertos are equal", () => {
+    // Both 18 pts, 1 hit. Alice: 0 zeros (2 partials). Bob: 1 zero (1 partial).
+    const predictions = [
+      { userId: "alice", matchId: M1, pointsAwarded: 10 },
+      { userId: "alice", matchId: M2, pointsAwarded: 4 },
+      { userId: "alice", matchId: M3, pointsAwarded: 4 },
+      { userId: "bob",   matchId: M1, pointsAwarded: 10 },
+      { userId: "bob",   matchId: M2, pointsAwarded: 8 },
+      { userId: "bob",   matchId: M3, pointsAwarded: 0 },
+    ];
+    const rows = computeLeaderboard([alice, bob], finishedGroup, predictions);
+    expect(rows[0]!.userId).toBe("alice"); // 0 zeros
+    expect(rows[1]!.userId).toBe("bob");   // 1 zero
   });
 
   it("tied on all tiebreakers → shared rank", () => {
@@ -569,7 +595,7 @@ describe("computeLeaderboard", () => {
       { userId: "alice", matchId: M1, pointsAwarded: 5 },
       { userId: "bob", matchId: M1, pointsAwarded: 5 },
     ];
-    const rows = computeLeaderboard([alice, bob], [M1], predictions);
+    const rows = computeLeaderboard([alice, bob], [grp(M1)], predictions);
     expect(rows[0]!.rank).toBe(1);
     expect(rows[1]!.rank).toBe(1);
   });
@@ -579,13 +605,13 @@ describe("computeLeaderboard", () => {
       { userId: "alice", matchId: M1, pointsAwarded: 10 },
       { userId: "bob", matchId: M1, pointsAwarded: 6 },
     ];
-    const rows = computeLeaderboard([alice, bob], [M1], predictions);
+    const rows = computeLeaderboard([alice, bob], [grp(M1)], predictions);
     expect(rows[0]!.deltaFromLeader).toBe(0);
     expect(rows[1]!.deltaFromLeader).toBe(-4);
   });
 
   it("empty users returns empty array", () => {
-    expect(computeLeaderboard([], [M1], [])).toEqual([]);
+    expect(computeLeaderboard([], [grp(M1)], [])).toEqual([]);
   });
 
   it("no finished matches → everyone at 0 pts", () => {
@@ -598,7 +624,7 @@ describe("computeLeaderboard", () => {
     const predictions = [
       { userId: "alice", matchId: M1, pointsAwarded: null },
     ];
-    const rows = computeLeaderboard([alice], [M1], predictions);
+    const rows = computeLeaderboard([alice], [grp(M1)], predictions);
     expect(rows[0]!.totalPoints).toBe(0);
     expect(rows[0]!.zeroMatches).toBe(1);
   });

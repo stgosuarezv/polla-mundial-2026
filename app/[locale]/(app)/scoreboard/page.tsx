@@ -36,13 +36,19 @@ export default async function ScoreboardPage({ params }: Props) {
     .from("profiles")
     .select("id, display_name");
 
-  // Finished match IDs
+  // Finished matches with stage (group/knockout) for perfect-match hit detection
   const { data: finishedMatches } = await supabase
     .from("matches")
-    .select("id")
+    .select("id, rounds(stage)")
     .eq("status", "finished");
 
-  const finishedIds = (finishedMatches ?? []).map((m) => m.id);
+  const finishedWithStage = (finishedMatches ?? []).flatMap((m) => {
+    const roundData = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    const stage: "group" | "knockout" =
+      roundData?.stage === "group" ? "group" : "knockout";
+    return [{ id: m.id, stage }];
+  });
+  const finishedIds = finishedWithStage.map((m) => m.id);
 
   // All predictions for finished matches (RLS allows seeing others' in locked rounds)
   const { data: preds } = finishedIds.length
@@ -63,7 +69,7 @@ export default async function ScoreboardPage({ params }: Props) {
     pointsAwarded: p.points_awarded,
   }));
 
-  const rows = computeLeaderboard(users, finishedIds, predictions);
+  const rows = computeLeaderboard(users, finishedWithStage, predictions);
 
   // Tied ranks split the combined pot for the positions they occupy.
   // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.

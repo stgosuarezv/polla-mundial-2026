@@ -185,27 +185,32 @@ export function scorePodio(
  * Builds a ranked leaderboard from scored predictions.
  *
  * Ranking: total points (desc) → matches hit (desc) → zero matches (asc).
- * Unsubmitted predictions on finished matches count as zero-matches.
+ * A "hit" (acierto) is a perfect prediction: the player scored the maximum
+ * points for that match — 10 in group stage, 25 in knockout. Partial scores
+ * (>0 but <max) count as neither a hit nor a zero. Unsubmitted predictions
+ * and 0-pt predictions on finished matches both count as zero-matches.
  *
- * @param users          All participating users.
- * @param finishedMatchIds IDs of matches that have been fully scored.
- * @param predictions    All scored predictions (only finished matches matter).
+ * @param users           All participating users.
+ * @param finishedMatches IDs and stages of matches that have been fully scored.
+ * @param predictions     All scored predictions (only finished matches matter).
  */
 export function computeLeaderboard(
   users: LeaderboardUser[],
-  finishedMatchIds: string[],
+  finishedMatches: Array<{ id: string; stage: Stage }>,
   predictions: Array<{
     userId: string;
     matchId: string;
     pointsAwarded: number | null;
   }>
 ): LeaderboardRow[] {
-  const finishedSet = new Set(finishedMatchIds);
+  const maxByMatch = new Map<string, number>();
+  for (const m of finishedMatches) {
+    maxByMatch.set(m.id, m.stage === "group" ? 10 : 25);
+  }
 
-  // Map "userId:matchId" → points for quick lookup
   const predMap = new Map<string, number>();
   for (const p of predictions) {
-    if (finishedSet.has(p.matchId)) {
+    if (maxByMatch.has(p.matchId)) {
       predMap.set(`${p.userId}:${p.matchId}`, p.pointsAwarded ?? 0);
     }
   }
@@ -217,11 +222,12 @@ export function computeLeaderboard(
     let total = 0;
     let hit = 0;
     let zero = 0;
-    for (const matchId of finishedMatchIds) {
-      const pts = predMap.get(`${user.id}:${matchId}`) ?? 0;
+    for (const m of finishedMatches) {
+      const pts = predMap.get(`${user.id}:${m.id}`) ?? 0;
       total += pts;
-      if (pts > 0) hit++;
-      else zero++;
+      const max = maxByMatch.get(m.id)!;
+      if (pts === max) hit++;
+      else if (pts === 0) zero++;
     }
     agg.set(user.id, { total, hit, zero });
   }
