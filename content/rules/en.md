@@ -94,7 +94,7 @@ Once closed, predictions cannot be edited or added. Matches with no prediction a
 
 ### Bonus Podium
 
-- You pick the **Champion**, **Runner-up**, and **Third place** of the World Cup.
+- You pick the **Champion** (50 pts), **Runner-up** (25 pts), and **Third place** (15 pts) of the World Cup. Maximum total: **90 pts**. Each slot is scored independently — get the Champion right and you earn 50 pts even if the other two are wrong.
 - The three teams must be different.
 - The window is open **during the group stage** (from the first day of the tournament). Once the first Round of 32 match kicks off, the Bonus Podium closes permanently.
 - You can save and update your picks as many times as you like **before the window closes**.
@@ -200,6 +200,7 @@ The table shows: rank, name, points, hits, zeros, and gap to the leader.
 
 - Your predictions are **private until the round closes**.
 - Once the round closes, everyone can see everyone's picks for those matches.
+- Your **Bonus Podium** is likewise private until the Podium window closes (when the first Round of 32 match begins). After that, everyone can see everyone's podium picks.
 
 ---
 

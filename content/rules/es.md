@@ -94,7 +94,7 @@ Una vez cerrada, no se pueden editar ni agregar predicciones. Los partidos sin p
 
 ### Bonus Podio
 
-- Predices el **Campeón**, **Subcampeón** y **Tercer lugar** del Mundial.
+- Predices el **Campeón** (50 pts), **Subcampeón** (25 pts) y **Tercer lugar** (15 pts) del Mundial. Máximo total: **90 pts**. Cada posición se evalúa por separado — aciertas el campeón solo y ganas 50 pts aunque el resto esté mal.
 - Los tres equipos deben ser distintos.
 - La ventana para enviarlo es **durante la fase de grupos** (puedes hacerlo desde el primer día del torneo). Una vez que empieza el primer partido de Dieciseisavos, el Bonus Podio se cierra definitivamente.
 - Puedes guardar y modificar tus selecciones cuantas veces quieras **antes del cierre**.
@@ -200,6 +200,7 @@ La tabla muestra: posición, nombre, puntos, aciertos, ceros y diferencia con el
 
 - Tus predicciones son **privadas hasta que la ronda cierra**.
 - Una vez cerrada la ronda, todos pueden ver los pronósticos de todos para esos partidos.
+- Tu **Bonus Podio** también es privado hasta que se cierra la ventana del Podio (al comenzar el primer partido de Dieciseisavos). Después, todos pueden ver las selecciones de podio de cada jugador.
 
 ---
 
