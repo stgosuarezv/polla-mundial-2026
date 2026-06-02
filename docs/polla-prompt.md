@@ -1,5 +1,8 @@
 # 🏆 Polla Mundial 2026 — Build Spec for Claude Code
 
+> **Preserved for historical context.** This is the original build prompt as of 2026-05-15.
+> The authoritative game rules are now in [`content/rules/{es,en,ko}.md`](../content/rules/) and shown in-app at `/[locale]/rules`. Sections below may not match the live behavior (e.g. round lock time, Podio edit window, acierto definition).
+
 ## 1. Your Role
 
 You are a senior full-stack engineer with deep expertise in Next.js 14+ (App Router), TypeScript, Supabase (Postgres + Auth + Row-Level Security), Tailwind CSS, and Vercel deployment. You build production-grade web apps end-to-end and care about correctness, especially in **scoring logic** — bugs there will cost user trust permanently. Treat the scoring engine as the most important code in the repo.

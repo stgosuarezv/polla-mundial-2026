@@ -34,7 +34,7 @@ pnpm dev                     # http://localhost:3000 → redirects to /es
 | `RESEND_API_KEY` | Yes | Resend API key |
 | `RESEND_FROM_EMAIL` | Yes | Verified sender email |
 | `NEXT_PUBLIC_APP_NAME` | No | App display name (default: "Polla Mundial 2026") |
-| `NEXT_PUBLIC_APP_URL` | Yes | Full URL (e.g. `https://polla2026.vercel.app`) |
+| `NEXT_PUBLIC_APP_URL` | Yes | Full URL (e.g. `https://pollamundial.cl`) |
 
 ## Scripts
 
@@ -52,19 +52,21 @@ pnpm test:coverage # Vitest with coverage report
 
 ```
 app/[locale]/         Next.js App Router pages (locale-prefixed)
-  (auth)/             login, signup
-  (app)/              predictions, podio, scoreboard, admin
+  (auth)/             login, signup, forgot-password, reset-password
+  (app)/              predictions, podio, scoreboard, rules, profile, admin
 components/ui/        shadcn/ui primitives
+content/rules/        Authoritative game rules (es/en/ko) — rendered at /[locale]/rules
 lib/
-  scoring/            Scoring engine (Phase 2) — pure functions, fully tested
+  scoring/            Scoring engine — pure functions, fully tested
   supabase/           Browser/server Supabase clients
   email/              Resend wrapper
   i18n/               next-intl routing + request config
 messages/             Translation files (es, en, ko)
-supabase/migrations/  SQL migration files (Phase 1)
-scripts/              seed.ts, sync-results.ts (Phase 1)
+supabase/migrations/  SQL migration files
+scripts/              seed.ts, sync-results.ts
 tests/                Vitest test suite
-docs/                 polla-prompt.md (spec)
+docs/                 polla-prompt.md (original build spec, historical)
+proxy.ts              Next.js 16 middleware (renamed from middleware.ts)
 ```
 
 ## Admin runbook
