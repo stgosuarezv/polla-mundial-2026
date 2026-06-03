@@ -39,12 +39,21 @@ export default async function PredictionsPage({ params }: Props) {
     .neq("stage", "podio")
     .order("order_index", { ascending: true });
 
-  // Fetch current user's predictions
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select(
-      "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
-    );
+  // Fetch current user's predictions. The explicit user_id filter is required:
+  // RLS also exposes other players' rows once a round locks, so without it the
+  // page would render whichever row arrived last per match_id.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: predictions } = user
+    ? await supabase
+        .from("predictions")
+        .select(
+          "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
+        )
+        .eq("user_id", user.id)
+    : { data: [] };
 
   const predByMatchId = new Map(
     (predictions ?? []).map((p) => [p.match_id, p])
