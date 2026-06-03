@@ -39,16 +39,18 @@ export default async function PredictionsPage({ params }: Props) {
     .neq("stage", "podio")
     .order("order_index", { ascending: true });
 
-  // Fetch current user's predictions. The explicit user_id filter is required:
-  // RLS also exposes other players' rows once a round locks, so without it the
-  // page would render whichever row arrived last per match_id.
+  // Reads from the my_predictions view (security_invoker, filters by auth.uid())
+  // so this query can NEVER return another user's rows — even though the base
+  // table's RLS exposes others' rows for locked rounds. See CLAUDE.md "User-data
+  // queries". The explicit .eq filter is redundant with the view but kept as a
+  // belt that signals intent.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const { data: predictions } = user
     ? await supabase
-        .from("predictions")
+        .from("my_predictions")
         .select(
           "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
         )

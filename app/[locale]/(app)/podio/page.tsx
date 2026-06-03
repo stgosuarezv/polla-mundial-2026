@@ -42,8 +42,13 @@ export default async function PodioPage({ params }: Props) {
     flag_url: team.flag_url,
   }));
 
+  // Reads from the my_podio_prediction view (security_invoker, filters by
+  // auth.uid()) so this query can NEVER return another user's row — important
+  // here because podio_predictions' RLS exposes others' rows once the Podio
+  // window locks, and .maybeSingle() would otherwise throw or pick an arbitrary
+  // row. See CLAUDE.md "User-data queries".
   const { data: existing } = await supabase
-    .from("podio_predictions")
+    .from("my_podio_prediction")
     .select(
       "champion_team_id, runner_up_team_id, third_place_team_id, points_awarded"
     )
