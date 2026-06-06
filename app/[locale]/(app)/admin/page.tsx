@@ -7,8 +7,9 @@ import { RoundsSection } from "@/components/admin/rounds-section";
 import { SyncSection } from "@/components/admin/sync-section";
 import { AuditSection } from "@/components/admin/audit-section";
 import { UsersSection } from "@/components/admin/users-section";
+import { DigestSection } from "@/components/admin/digest-section";
 
-const VALID_TABS = ["invitations", "matches", "rounds", "users", "sync", "audit"] as const;
+const VALID_TABS = ["invitations", "matches", "rounds", "users", "sync", "audit", "digest"] as const;
 
 interface Props {
   params: Promise<{ locale: string }>;
@@ -79,6 +80,37 @@ export default async function AdminPage({ params, searchParams }: Props) {
     .select("id, name_key, order_index, stage, lock_time, matches(kickoff_at)")
     .order("order_index", { ascending: true });
 
+  // ── Digest section data ──────────────────────────────────────────────────────
+  const { data: appSettings } = await admin
+    .from("app_settings")
+    .select("digest_mode")
+    .eq("id", 1)
+    .single();
+
+  const { data: digestRounds } = await admin
+    .from("rounds")
+    .select("id, name_key, stage, lock_time, snapshot_sent_at")
+    .order("order_index", { ascending: true });
+
+  const { data: recentSnapshotsRaw } = await admin
+    .from("rounds")
+    .select(
+      `id, name_key, snapshot_sent_at, snapshot_sent_by,
+       sent_by:snapshot_sent_by ( display_name )`
+    )
+    .not("snapshot_sent_at", "is", null)
+    .order("snapshot_sent_at", { ascending: false })
+    .limit(20);
+  const recentSnapshots = (recentSnapshotsRaw ?? []).map((r) => {
+    const sentBy = Array.isArray(r.sent_by) ? r.sent_by[0] : r.sent_by;
+    return {
+      round_id: r.id,
+      name_key: r.name_key,
+      snapshot_sent_at: r.snapshot_sent_at!,
+      sent_by_display_name: sentBy?.display_name ?? null,
+    };
+  });
+
   const roundsIntermediate = (roundsForLock ?? []).map((r) => {
     const kickoffs = ((r.matches as { kickoff_at: string }[] | null) ?? [])
       .map((m) => m.kickoff_at)
@@ -113,6 +145,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
           <TabsTrigger value="users">{t("tabs.users")}</TabsTrigger>
           <TabsTrigger value="sync">{t("tabs.sync")}</TabsTrigger>
           <TabsTrigger value="audit">{t("tabs.audit")}</TabsTrigger>
+          <TabsTrigger value="digest">{t("tabs.digest")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invitations" className="mt-0">
@@ -139,6 +172,24 @@ export default async function AdminPage({ params, searchParams }: Props) {
           <AuditSection
             matchEntries={auditEntries ?? []}
             roundEntries={roundAuditEntries ?? []}
+          />
+        </TabsContent>
+
+        <TabsContent value="digest" className="mt-0">
+          <DigestSection
+            initialMode={appSettings?.digest_mode ?? "manual"}
+            rounds={(digestRounds ?? []).map((r) => ({
+              id: r.id,
+              name_key: r.name_key,
+              stage: r.stage,
+              lock_time: r.lock_time,
+              snapshot_sent_at: r.snapshot_sent_at,
+            }))}
+            users={(profiles ?? []).map((p) => ({
+              id: p.id,
+              display_name: p.display_name,
+            }))}
+            recentSnapshots={recentSnapshots}
           />
         </TabsContent>
       </Tabs>

@@ -11,6 +11,7 @@ const ADMIN_TABS = [
   "users",
   "sync",
   "audit",
+  "digest",
 ] as const;
 
 interface Props {
