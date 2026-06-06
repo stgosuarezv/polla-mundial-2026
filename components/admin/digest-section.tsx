@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +46,7 @@ export function DigestSection({
   recentSnapshots,
 }: DigestSectionProps) {
   const t = useTranslations("admin.digest");
+  const router = useRouter();
   const [mode, setMode] = useState<"manual" | "automated">(initialMode);
   const [savingMode, startSavingMode] = useTransition();
   const [modeMsg, setModeMsg] = useState<string | null>(null);
@@ -100,6 +102,8 @@ export function DigestSection({
         setSendMsg(t("sendNoEligible"));
       } else {
         setSendMsg(t("sendSummary", { rounds: roundsSent, sent, failed }));
+        // Refresh the server-rendered "Recent sends" list and the eligible count.
+        router.refresh();
       }
     });
   }

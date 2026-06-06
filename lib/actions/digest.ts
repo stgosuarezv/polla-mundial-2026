@@ -396,13 +396,20 @@ async function sendDigestForRound(
     }
   }
 
-  await admin
-    .from("rounds")
-    .update({
-      snapshot_sent_at: new Date().toISOString(),
-      snapshot_sent_by: triggeredBy,
-    })
-    .eq("id", roundId);
+  // Only mark the round as digested if at least one email actually went out.
+  // Total failure (RESEND_API_KEY missing, Resend outage, etc.) leaves
+  // snapshot_sent_at NULL so the next run retries. Partial failures get
+  // marked — the admin sees the failure count in the result and can clear
+  // snapshot_sent_at manually for a targeted re-send if needed.
+  if (result.sent > 0) {
+    await admin
+      .from("rounds")
+      .update({
+        snapshot_sent_at: new Date().toISOString(),
+        snapshot_sent_by: triggeredBy,
+      })
+      .eq("id", roundId);
+  }
 
   return result;
 }
