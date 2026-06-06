@@ -95,7 +95,8 @@
       "users": "사용자",
       "sync": "동기화",
       "audit": "감사 로그",
-      "rounds": "라운드"
+      "rounds": "라운드",
+      "digest": "공지"
     },
     "users": {
       "save": "저장",
@@ -176,6 +177,36 @@
       "saved": "저장됨",
       "errorAfterKickoff": "마감 시간은 첫 경기 킥오프 이후로 설정할 수 없습니다.",
       "errorGeneric": "저장 오류"
+    },
+    "digest": {
+      "modeTitle": "라운드 마감 공지 모드",
+      "modeDescription": "자동 모드에서는 라운드가 마감될 때 GitHub Actions가 모든 참가자에게 공지를 보냅니다. 수동 모드에서는 아래 버튼을 직접 눌러야 합니다.",
+      "modeManual": "수동",
+      "modeAutomated": "자동",
+      "modeSaved": "저장됨",
+      "modeError": "오류: {error}",
+      "sendTitle": "지금 공지 보내기",
+      "sendDescription": "{count, plural, =0 {보낼 라운드가 없습니다.} other {보낼 라운드 {count}개.}}",
+      "sendButton": "라운드 마감 공지 보내기",
+      "sending": "전송 중…",
+      "sendSummary": "{rounds}개 라운드 처리됨 — {sent}건 전송, {failed}건 실패.",
+      "sendNoEligible": "보낼 라운드가 없습니다.",
+      "previewTitle": "미리보기",
+      "previewDescription": "선택한 참가자가 받을 정확한 이메일을 보여줍니다.",
+      "previewButton": "미리보기",
+      "previewing": "불러오는 중…",
+      "previewLocaleAuto": "참가자 언어",
+      "previewSubject": "제목",
+      "csvTitle": "CSV 다운로드",
+      "csvDescription": "해당 라운드의 모든 예측을 CSV로 다운로드합니다.",
+      "csvButton": "CSV 다운로드",
+      "downloading": "다운로드 중…",
+      "recentTitle": "최근 전송",
+      "recentEmpty": "아직 전송 기록이 없습니다.",
+      "recentRound": "라운드",
+      "recentSentAt": "시간",
+      "recentSentBy": "보낸 사람",
+      "recentAutomated": "자동"
     }
   },
   "profile": {

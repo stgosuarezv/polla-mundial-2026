@@ -95,7 +95,8 @@
       "users": "Users",
       "sync": "Sync & Rescore",
       "audit": "Audit Log",
-      "rounds": "Rounds"
+      "rounds": "Rounds",
+      "digest": "Digest"
     },
     "users": {
       "save": "Save",
@@ -176,6 +177,36 @@
       "saved": "Saved",
       "errorAfterKickoff": "Deadline cannot be after first kickoff.",
       "errorGeneric": "Error saving"
+    },
+    "digest": {
+      "modeTitle": "Round-close digest mode",
+      "modeDescription": "In automated mode, GitHub Actions sends the digest to all players when a round closes. In manual mode, you must click the button below.",
+      "modeManual": "Manual",
+      "modeAutomated": "Automated",
+      "modeSaved": "Saved",
+      "modeError": "Error: {error}",
+      "sendTitle": "Send digest now",
+      "sendDescription": "{count, plural, =0 {No locked rounds pending a digest.} one {# round ready to send.} other {# rounds ready to send.}}",
+      "sendButton": "Send round-close digest",
+      "sending": "Sending…",
+      "sendSummary": "{rounds} round(s) processed — {sent} sent, {failed} failed.",
+      "sendNoEligible": "No rounds pending a digest.",
+      "previewTitle": "Preview email",
+      "previewDescription": "Renders the exact email the selected player would receive for that round.",
+      "previewButton": "Preview",
+      "previewing": "Loading…",
+      "previewLocaleAuto": "Player's locale",
+      "previewSubject": "Subject",
+      "csvTitle": "Download CSV",
+      "csvDescription": "Download all predictions for the round as a CSV.",
+      "csvButton": "Download CSV",
+      "downloading": "Downloading…",
+      "recentTitle": "Recent sends",
+      "recentEmpty": "No sends recorded yet.",
+      "recentRound": "Round",
+      "recentSentAt": "When",
+      "recentSentBy": "By",
+      "recentAutomated": "automated"
     }
   },
   "profile": {

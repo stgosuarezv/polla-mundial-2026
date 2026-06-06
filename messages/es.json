@@ -95,7 +95,8 @@
       "users": "Usuarios",
       "sync": "Sincronizar",
       "audit": "Auditoría",
-      "rounds": "Rondas"
+      "rounds": "Rondas",
+      "digest": "Comunicados"
     },
     "users": {
       "save": "Guardar",
@@ -176,6 +177,36 @@
       "saved": "Guardado",
       "errorAfterKickoff": "El plazo no puede ser posterior al primer partido.",
       "errorGeneric": "Error al guardar"
+    },
+    "digest": {
+      "modeTitle": "Modo de envío del resumen",
+      "modeDescription": "En modo automático, GitHub Actions envía el resumen a todos los jugadores cuando una ronda cierra. En modo manual, debes apretar el botón abajo.",
+      "modeManual": "Manual",
+      "modeAutomated": "Automático",
+      "modeSaved": "Guardado",
+      "modeError": "Error: {error}",
+      "sendTitle": "Enviar resumen ahora",
+      "sendDescription": "{count, plural, =0 {No hay rondas cerradas pendientes de enviar.} one {Hay # ronda lista para enviar.} other {Hay # rondas listas para enviar.}}",
+      "sendButton": "Enviar resumen de cierre de ronda",
+      "sending": "Enviando…",
+      "sendSummary": "{rounds} ronda(s) procesadas — {sent} enviados, {failed} fallaron.",
+      "sendNoEligible": "No hay rondas pendientes de enviar.",
+      "previewTitle": "Ver borrador",
+      "previewDescription": "Muestra el correo exacto que recibiría el jugador seleccionado para esa ronda.",
+      "previewButton": "Ver borrador",
+      "previewing": "Cargando…",
+      "previewLocaleAuto": "Idioma del jugador",
+      "previewSubject": "Asunto",
+      "csvTitle": "Descargar CSV",
+      "csvDescription": "Descarga todas las predicciones de la ronda como CSV.",
+      "csvButton": "Descargar CSV",
+      "downloading": "Descargando…",
+      "recentTitle": "Envíos recientes",
+      "recentEmpty": "Sin envíos registrados aún.",
+      "recentRound": "Ronda",
+      "recentSentAt": "Cuándo",
+      "recentSentBy": "Por",
+      "recentAutomated": "automático"
     }
   },
   "profile": {
