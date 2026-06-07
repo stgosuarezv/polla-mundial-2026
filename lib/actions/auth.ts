@@ -202,9 +202,19 @@ export async function resetPassword(
   const { password, locale } = parsed.data;
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
+    console.error("[resetPassword] updateUser failed", {
+      hasSession: Boolean(user),
+      userId: user?.id ?? null,
+      name: error.name,
+      status: error.status,
+      message: error.message,
+    });
     return { ok: false, error: "error.generic" };
   }
 
