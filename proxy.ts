@@ -30,9 +30,14 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
+          // Write refreshed cookies to both request (so RSC getUser() sees the
+          // new token on this same render) and response (so the browser gets it).
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
       },
     }
@@ -53,11 +58,19 @@ export async function proxy(request: NextRequest) {
     !PUBLIC_PAGES.test(pathname) &&
     !user
   ) {
-    return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
+    const redirectRes = NextResponse.redirect(
+      new URL(`/${locale}/login`, request.url)
+    );
+    response.cookies.getAll().forEach((c) => redirectRes.cookies.set(c));
+    return redirectRes;
   }
 
   if (AUTH_PAGES.test(pathname) && user && !RESET_PASSWORD.test(pathname)) {
-    return NextResponse.redirect(new URL(`/${locale}/predictions`, request.url));
+    const redirectRes = NextResponse.redirect(
+      new URL(`/${locale}/predictions`, request.url)
+    );
+    response.cookies.getAll().forEach((c) => redirectRes.cookies.set(c));
+    return redirectRes;
   }
 
   return response;
