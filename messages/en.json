@@ -104,7 +104,13 @@
       "saving": "Saving…",
       "saved": "Saved",
       "admin": "admin",
-      "insertEmoji": "Insert emoji"
+      "insertEmoji": "Insert emoji",
+      "remove": "Remove",
+      "removing": "Removing…",
+      "removeConfirm": "Remove {name}? All their predictions and podium pick will be deleted. The email can be re-invited later.",
+      "removeError": "Could not remove: {error}",
+      "removeErrorSelf": "You can't remove yourself.",
+      "removeErrorAdmin": "An admin cannot be removed."
     },
     "invitations": {
       "inviteTitle": "Invite users",

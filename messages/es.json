@@ -104,7 +104,13 @@
       "saving": "Guardando…",
       "saved": "Guardado",
       "admin": "admin",
-      "insertEmoji": "Insertar emoji"
+      "insertEmoji": "Insertar emoji",
+      "remove": "Eliminar",
+      "removing": "Eliminando…",
+      "removeConfirm": "¿Eliminar a {name}? Se borrarán todas sus predicciones y el podio. El correo podrá volver a ser invitado.",
+      "removeError": "Error al eliminar: {error}",
+      "removeErrorSelf": "No puedes eliminarte a ti mismo.",
+      "removeErrorAdmin": "No se puede eliminar a un admin."
     },
     "invitations": {
       "inviteTitle": "Invitar usuarios",
