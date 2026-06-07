@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { MatchCard } from "@/components/predictions/match-card";
@@ -48,14 +49,17 @@ export default async function PredictionsPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: predictions } = user
-    ? await supabase
-        .from("my_predictions")
-        .select(
-          "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
-        )
-        .eq("user_id", user.id)
-    : { data: [] };
+  // Middleware guarantees auth before this page renders. A null user here means
+  // the session cookie propagation failed — redirect to login rather than
+  // silently rendering blank cards (which looks like data loss to the player).
+  if (!user) redirect(`/${locale}/login`);
+
+  const { data: predictions } = await supabase
+    .from("my_predictions")
+    .select(
+      "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
+    )
+    .eq("user_id", user.id);
 
   const predByMatchId = new Map(
     (predictions ?? []).map((p) => [p.match_id, p])
