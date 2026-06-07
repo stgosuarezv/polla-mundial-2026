@@ -216,6 +216,9 @@
       "recentAutomated": "automated"
     }
   },
+  "rules": {
+    "downloadPdf": "Download PDF"
+  },
   "profile": {
     "podiumSection": "Bonus Podium",
     "podiumOpen": "Podium window still open — picks can be changed until the Round of 32 begins.",

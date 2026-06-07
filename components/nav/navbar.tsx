@@ -26,7 +26,7 @@ interface NavBarProps {
 export function NavBar({ locale, displayName, isAdmin, profileUserId, t }: NavBarProps) {
   const isAuthed = profileUserId !== "";
   return (
-    <nav className="border-b-4 border-[#F4C430] shadow-md" style={{ backgroundColor: '#1A2855', color: '#F5F0E6' }}>
+    <nav className="border-b-4 border-[#F4C430] shadow-md print:hidden" style={{ backgroundColor: '#1A2855', color: '#F5F0E6' }}>
       <div className="mx-auto flex min-h-16 max-w-5xl items-center gap-3 px-4 py-3 sm:py-4">
         {/* Logo */}
         <Link
