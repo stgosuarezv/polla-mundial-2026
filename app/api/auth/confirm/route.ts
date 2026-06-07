@@ -31,13 +31,15 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
     if (!error) {
-      // Only redirect to same-origin targets (defense in depth: even though the
-      // email link is signed by Supabase, refuse open-redirect to external URLs).
+      // Discard the next URL's origin and resolve its path against the current
+      // request origin. This prevents open-redirect attacks (we always land on
+      // our own host) AND tolerates apex/www variants of the same site — if the
+      // template was built with apex but the user lands at www (or vice versa),
+      // we still go to the right path on the right host.
       try {
         const nextUrl = new URL(next, origin);
-        if (nextUrl.origin === origin) {
-          return NextResponse.redirect(nextUrl.toString());
-        }
+        const safePath = nextUrl.pathname + nextUrl.search + nextUrl.hash;
+        return NextResponse.redirect(`${origin}${safePath}`);
       } catch {
         // fall through to safe default
       }
