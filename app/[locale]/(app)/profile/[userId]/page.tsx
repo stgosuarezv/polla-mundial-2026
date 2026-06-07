@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 interface Props {
   params: Promise<{ locale: string; userId: string }>;
@@ -34,6 +35,11 @@ export default async function ProfilePage({ params }: Props) {
     .single();
 
   if (!profile) notFound();
+
+  // Target user's email lives on auth.users, not profiles — read via admin client.
+  const admin = createAdminClient();
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const email = authUser?.user?.email ?? null;
 
   // All non-podio rounds
   const { data: roundsData } = await supabase
@@ -127,6 +133,14 @@ export default async function ProfilePage({ params }: Props) {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">{profile.display_name}</h1>
+        {email && (
+          <a
+            href={`mailto:${email}`}
+            className="block text-sm text-muted-foreground hover:text-foreground hover:underline break-all"
+          >
+            {email}
+          </a>
+        )}
         <p className="text-sm text-muted-foreground">
           {totalPoints} {tPred("pts")} total
         </p>
