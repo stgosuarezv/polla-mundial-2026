@@ -85,7 +85,8 @@
     "viewPredictions": "Ver predicciones",
     "predictionsOf": "Predicciones de {name}",
     "backToScoreboard": "← Volver a la tabla",
-    "poolCaption": "Pozo total: {amount} CLP — premio para los 8 primeros. Ver premios en las <link>reglas</link>."
+    "poolCaption": "Pozo total: {amount} CLP — premio para los 8 primeros. Ver premios en las <link>reglas</link>.",
+    "playerCount": "{count, plural, =0 {Sin jugadores aún.} one {# jugador en la polla.} other {# jugadores en la polla.}}"
   },
   "admin": {
     "title": "Panel de administración",
