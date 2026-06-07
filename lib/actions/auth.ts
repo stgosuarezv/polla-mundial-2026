@@ -171,8 +171,11 @@ export async function forgotPassword(
   const { email, locale } = parsed.data;
   const supabase = await createClient();
 
+  // The Supabase "Reset Password" email template uses {{ .RedirectTo }} as the
+  // `next` query param on /api/auth/confirm, so we set redirectTo to the final
+  // destination the user should land on after token-hash verification.
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${getAppOrigin()}/api/auth/callback?next=/${locale}/reset-password`,
+    redirectTo: `${getAppOrigin()}/${locale}/reset-password`,
   });
 
   // Always return ok to avoid email enumeration
