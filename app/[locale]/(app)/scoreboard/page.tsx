@@ -18,6 +18,29 @@ function formatCLP(locale: string, amount: number): string {
   }).format(amount);
 }
 
+interface TeamLite {
+  id: string;
+  code: string;
+  name_en: string;
+  name_es: string;
+  name_ko: string;
+}
+
+function teamCode(team: TeamLite | null | undefined): string {
+  return team?.code ?? "TBD";
+}
+
+function formatKickoffCL(iso: string, locale: string): string {
+  const tag = locale === "ko" ? "ko-KR" : locale === "en" ? "en-US" : "es-CL";
+  return new Date(iso).toLocaleString(tag, {
+    timeZone: "America/Santiago",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 interface Props {
   params: Promise<{ locale: string }>;
 }
@@ -71,6 +94,60 @@ export default async function ScoreboardPage({ params }: Props) {
 
   const rows = computeLeaderboard(users, finishedWithStage, predictions);
 
+  // ── Next-match preview ──────────────────────────────────────────────────────
+  // Take the soonest upcoming match(es). Two simultaneous group matches are
+  // common (same kickoff_at) so we include all of them. Limit to 4 just in case.
+  const nowIso = new Date().toISOString();
+  const { data: upcoming } = await supabase
+    .from("matches")
+    .select(
+      `id, kickoff_at, round_id,
+       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+       away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
+       rounds!inner ( id, lock_time )`
+    )
+    .neq("status", "finished")
+    .gte("kickoff_at", nowIso)
+    .order("kickoff_at", { ascending: true })
+    .limit(4);
+
+  const earliestKickoff = upcoming?.[0]?.kickoff_at;
+  const nextMatches = (upcoming ?? [])
+    .filter((m) => m.kickoff_at === earliestKickoff)
+    .map((m) => {
+      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+      return {
+        id: m.id,
+        kickoff_at: m.kickoff_at,
+        home: home ?? null,
+        away: away ?? null,
+        roundClosed: round ? round.lock_time <= nowIso : false,
+      };
+    });
+
+  // Predictions only for matches whose round has already locked.
+  const closedNextIds = nextMatches
+    .filter((m) => m.roundClosed)
+    .map((m) => m.id);
+  const { data: nextPreds } = closedNextIds.length
+    ? await supabase
+        .from("predictions")
+        .select("user_id, match_id, home_score_pred, away_score_pred")
+        .in("match_id", closedNextIds)
+    : { data: [] };
+  const nextPredByKey = new Map<
+    string,
+    { home_score_pred: number; away_score_pred: number }
+  >();
+  for (const p of nextPreds ?? []) {
+    nextPredByKey.set(`${p.user_id}:${p.match_id}`, {
+      home_score_pred: p.home_score_pred,
+      away_score_pred: p.away_score_pred,
+    });
+  }
+
   // Tied ranks split the combined pot for the positions they occupy.
   // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.
   const prizeByRank = new Map<number, number>();
@@ -105,6 +182,10 @@ export default async function ScoreboardPage({ params }: Props) {
         })}
       </p>
 
+      <p className="text-sm text-muted-foreground">
+        {t("playerCount", { count: rows.length })}
+      </p>
+
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
@@ -133,6 +214,19 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("prize")}
                 </th>
+                {nextMatches.map((m) => (
+                  <th
+                    key={m.id}
+                    className="hidden px-3 py-2 text-center font-medium text-muted-foreground md:table-cell whitespace-nowrap"
+                  >
+                    <div className="text-xs">
+                      {teamCode(m.home)}–{teamCode(m.away)}
+                    </div>
+                    <div className="text-[10px] font-normal text-muted-foreground/70">
+                      {formatKickoffCL(m.kickoff_at, locale)}
+                    </div>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -189,6 +283,21 @@ export default async function ScoreboardPage({ params }: Props) {
                     >
                       {prize}
                     </td>
+                    {nextMatches.map((m) => {
+                      const pred = m.roundClosed
+                        ? nextPredByKey.get(`${row.userId}:${m.id}`)
+                        : undefined;
+                      return (
+                        <td
+                          key={m.id}
+                          className="hidden px-3 py-2.5 text-center text-muted-foreground md:table-cell whitespace-nowrap"
+                        >
+                          {pred
+                            ? `${pred.home_score_pred}–${pred.away_score_pred}`
+                            : "—"}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
               })}
