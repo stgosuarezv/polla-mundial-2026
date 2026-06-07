@@ -216,6 +216,9 @@
       "recentAutomated": "자동"
     }
   },
+  "rules": {
+    "downloadPdf": "PDF 다운로드"
+  },
   "profile": {
     "podiumSection": "보너스 포디엄",
     "podiumOpen": "포디엄 창이 아직 열려 있습니다 — 32강이 시작될 때까지 변경할 수 있습니다.",

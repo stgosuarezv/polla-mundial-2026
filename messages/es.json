@@ -216,6 +216,9 @@
       "recentAutomated": "automático"
     }
   },
+  "rules": {
+    "downloadPdf": "Descargar PDF"
+  },
   "profile": {
     "podiumSection": "Bonus Podio",
     "podiumOpen": "La ventana del podio sigue abierta — puedes cambiar tus selecciones hasta que empiecen los Dieciseisavos.",
