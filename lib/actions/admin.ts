@@ -332,3 +332,76 @@ export async function syncFromFootballData(): Promise<
     return { ok: false, error: (err as Error).message };
   }
 }
+
+// ── Delete a user (admin only) ─────────────────────────────────────────────────
+
+const DeleteUserSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+/**
+ * Removes a player from the pool. Cascades: deletes their profile, predictions,
+ * and Podio prediction. Also deletes their invitations row so the email is free
+ * to be re-invited later. Writes a row to profile_audit before deleting.
+ *
+ * Refuses to delete:
+ *   - the calling admin themselves
+ *   - any other admin (safety: avoid locking the pool out of admin access)
+ */
+export async function deleteUserByAdmin(
+  input: z.infer<typeof DeleteUserSchema>
+): Promise<ActionResult<{ userId: string }>> {
+  const guard = await requireAdmin();
+  if (guard) return guard;
+
+  const parsed = DeleteUserSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.message };
+  const { userId } = parsed.data;
+
+  const supabase = await createClient();
+  const {
+    data: { user: currentUser },
+  } = await supabase.auth.getUser();
+  if (!currentUser) return { ok: false, error: "Unauthorized" };
+  if (currentUser.id === userId) {
+    return { ok: false, error: "selfDelete" };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: target, error: targetErr } = await admin
+    .from("profiles")
+    .select("display_name, is_admin")
+    .eq("id", userId)
+    .single();
+  if (targetErr || !target) {
+    return { ok: false, error: "User not found" };
+  }
+  if (target.is_admin) {
+    return { ok: false, error: "adminDelete" };
+  }
+
+  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const email = authUser?.user?.email ?? null;
+
+  // Audit row first so it survives even if anything below fails.
+  await admin.from("profile_audit").insert({
+    deleted_user_id: userId,
+    deleted_email: email,
+    deleted_display_name: target.display_name,
+    was_admin: target.is_admin,
+    changed_by: currentUser.id,
+  });
+
+  // Delete the invitations row so the email is available again. Match by email
+  // (which is unique on the table).
+  if (email) {
+    await admin.from("invitations").delete().eq("email", email);
+  }
+
+  // Finally delete the auth user — cascades to profile, predictions, podio.
+  const { error: delErr } = await admin.auth.admin.deleteUser(userId);
+  if (delErr) return { ok: false, error: delErr.message };
+
+  return { ok: true, data: { userId } };
+}

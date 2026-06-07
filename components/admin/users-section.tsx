@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { updateUserDisplayName } from "@/lib/actions/admin";
+import { deleteUserByAdmin, updateUserDisplayName } from "@/lib/actions/admin";
 import { EmojiPicker } from "./emoji-picker";
 
 interface User {
@@ -27,6 +27,10 @@ export function UsersSection({ users: initial }: Props) {
     );
   }
 
+  function handleDeleted(id: string) {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  }
+
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -37,6 +41,7 @@ export function UsersSection({ users: initial }: Props) {
               user={u}
               t={t}
               onSaved={(name) => handleSaved(u.id, name)}
+              onDeleted={() => handleDeleted(u.id)}
             />
           ))}
         </tbody>
@@ -49,14 +54,18 @@ function UserRow({
   user,
   t,
   onSaved,
+  onDeleted,
 }: {
   user: User;
   t: ReturnType<typeof useTranslations<"admin.users">>;
   onSaved: (name: string) => void;
+  onDeleted: () => void;
 }) {
   const [value, setValue] = useState(user.display_name);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [, startTransition] = useTransition();
+  const [removing, startRemoving] = useTransition();
+  const [removeErr, setRemoveErr] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const dirty =
@@ -97,6 +106,29 @@ function UserRow({
     });
   }
 
+  function handleRemove() {
+    setRemoveErr(null);
+    if (
+      !window.confirm(
+        t("removeConfirm", { name: user.display_name })
+      )
+    ) {
+      return;
+    }
+    startRemoving(async () => {
+      const res = await deleteUserByAdmin({ userId: user.id });
+      if (res.ok) {
+        onDeleted();
+      } else if (res.error === "selfDelete") {
+        setRemoveErr(t("removeErrorSelf"));
+      } else if (res.error === "adminDelete") {
+        setRemoveErr(t("removeErrorAdmin"));
+      } else {
+        setRemoveErr(t("removeError", { error: res.error }));
+      }
+    });
+  }
+
   return (
     <tr className="hover:bg-muted/20">
       <td className="px-3 py-2 w-full">
@@ -123,7 +155,7 @@ function UserRow({
           </span>
         )}
       </td>
-      <td className="px-3 py-2 text-right">
+      <td className="px-3 py-2 text-right whitespace-nowrap">
         <Button
           size="sm"
           disabled={!dirty || status === "saving"}
@@ -135,6 +167,24 @@ function UserRow({
               ? t("saved")
               : t("save")}
         </Button>
+      </td>
+      <td className="px-3 py-2 text-right whitespace-nowrap">
+        {!user.is_admin && (
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-destructive hover:bg-destructive/10"
+              disabled={removing}
+              onClick={handleRemove}
+            >
+              {removing ? t("removing") : t("remove")}
+            </Button>
+            {removeErr && (
+              <span className="text-xs text-destructive">{removeErr}</span>
+            )}
+          </div>
+        )}
       </td>
     </tr>
   );
