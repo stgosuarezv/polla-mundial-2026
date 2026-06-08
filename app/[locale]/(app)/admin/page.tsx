@@ -5,6 +5,7 @@ import { InviteSection } from "@/components/admin/invite-section";
 import { MatchesSection } from "@/components/admin/matches-section";
 import { RoundsSection } from "@/components/admin/rounds-section";
 import { SyncSection } from "@/components/admin/sync-section";
+import { SyncModeSection } from "@/components/admin/sync-mode-section";
 import { AuditSection } from "@/components/admin/audit-section";
 import { UsersSection } from "@/components/admin/users-section";
 import { DigestSection } from "@/components/admin/digest-section";
@@ -83,7 +84,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
   // ── Digest section data ──────────────────────────────────────────────────────
   const { data: appSettings } = await admin
     .from("app_settings")
-    .select("digest_mode")
+    .select("digest_mode, sync_mode")
     .eq("id", 1)
     .single();
 
@@ -165,7 +166,12 @@ export default async function AdminPage({ params, searchParams }: Props) {
         </TabsContent>
 
         <TabsContent value="sync" className="mt-0">
-          <SyncSection />
+          <div className="space-y-6">
+            <SyncModeSection
+              initialMode={appSettings?.sync_mode ?? "manual"}
+            />
+            <SyncSection />
+          </div>
         </TabsContent>
 
         <TabsContent value="audit" className="mt-0">

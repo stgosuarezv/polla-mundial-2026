@@ -1,0 +1,22 @@
+name: Auto sync match results
+
+on:
+  # Every 5 minutes. GitHub Actions has a ~5-min floor on scheduled workflows,
+  # so this is the practical minimum. The endpoint itself smart-skips when
+  # no matches kicked off ≥ 2 hours ago are still pending — zero football-data.org
+  # API calls on rest days or before the result window opens.
+  # Switching sync_mode to 'manual' in the admin panel takes effect immediately
+  # without editing this file.
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST sync-results endpoint
+        run: |
+          curl --fail-with-body --silent --show-error \
+               -X POST "${{ secrets.CRON_URL }}/api/cron/sync-results" \
+               -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
