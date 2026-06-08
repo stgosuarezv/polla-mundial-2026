@@ -58,6 +58,44 @@ export async function savePrediction(
   return { ok: true };
 }
 
+// ── Bulk-save multiple match predictions in one round-trip ───────────────────
+
+type PredictionPayload = z.infer<typeof PredictionSchema>;
+
+export async function saveManyPredictions(
+  items: PredictionPayload[]
+): Promise<ActionResult> {
+  const parsed = z.array(PredictionSchema).safeParse(items);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "unauthenticated" };
+
+  const rows = parsed.data.map((p) => ({
+    user_id: user.id,
+    match_id: p.matchId,
+    home_score_pred: p.homeScore,
+    away_score_pred: p.awayScore,
+    penalty_winner_team_id: p.penaltyWinnerId ?? null,
+    submitted_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase
+    .from("predictions")
+    .upsert(rows, { onConflict: "user_id,match_id" });
+
+  if (error) {
+    if (error.message.includes("security")) return { ok: false, error: "locked" };
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/[locale]/(app)/predictions", "page");
+  return { ok: true };
+}
+
 // ── Save podio prediction (editable until deadline) ──────────────────────────
 
 const PodioSchema = z.object({

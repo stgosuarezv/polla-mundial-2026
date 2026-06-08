@@ -69,7 +69,8 @@
     "lockedSince": "Locked",
     "noPrediction": "No prediction",
     "pointsBreakdown": "Points breakdown",
-    "allPredictions": "All predictions"
+    "allPredictions": "All predictions",
+    "saveAll": "Save all"
   },
   "scoreboard": {
     "title": "Scoreboard",

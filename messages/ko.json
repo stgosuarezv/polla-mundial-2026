@@ -69,7 +69,8 @@
     "lockedSince": "마감됨",
     "noPrediction": "예측 없음",
     "pointsBreakdown": "점수 내역",
-    "allPredictions": "모든 예측"
+    "allPredictions": "모든 예측",
+    "saveAll": "모두 저장"
   },
   "scoreboard": {
     "title": "순위표",
