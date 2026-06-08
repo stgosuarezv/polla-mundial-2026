@@ -69,7 +69,8 @@
     "lockedSince": "Cerrado",
     "noPrediction": "Sin predicción",
     "pointsBreakdown": "Desglose de puntos",
-    "allPredictions": "Todas las predicciones"
+    "allPredictions": "Todas las predicciones",
+    "saveAll": "Guardar todo"
   },
   "scoreboard": {
     "title": "Tabla de posiciones",

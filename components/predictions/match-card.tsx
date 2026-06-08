@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { savePrediction } from "@/lib/actions/predictions";
+import { usePredictionsForm } from "@/components/predictions/predictions-form";
 import { cn } from "@/lib/utils";
 
 interface Team {
@@ -78,22 +79,71 @@ export function MatchCard({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  const isDirty =
-    String(homeInput) !== String(prediction?.home_score_pred ?? "") ||
-    String(awayInput) !== String(prediction?.away_score_pred ?? "") ||
-    penWinner !== (prediction?.penalty_winner_team_id ?? "");
-
-  const canSave = saveStatus !== "saving" && (isDirty || saveStatus === "error");
-
-  function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && canSave) handleSave();
-  }
-
   const showPenPicker =
     isKnockout &&
     homeInput !== "" &&
     awayInput !== "" &&
     Number(homeInput) === Number(awayInput);
+
+  const isDirty =
+    String(homeInput) !== String(prediction?.home_score_pred ?? "") ||
+    String(awayInput) !== String(prediction?.away_score_pred ?? "") ||
+    penWinner !== (prediction?.penalty_winner_team_id ?? "");
+
+  const isComplete = homeInput !== "" && awayInput !== "";
+  const canSave = saveStatus !== "saving" && (isDirty || saveStatus === "error");
+
+  // ── Bulk-save context integration ──────────────────────────────────────────
+  const ctx = usePredictionsForm();
+  // Keep a stable ref to latest values so getPayload always reads current state
+  const stateRef = useRef({
+    homeInput,
+    awayInput,
+    penWinner,
+    showPenPicker,
+    isDirty,
+    isComplete,
+  });
+  useEffect(() => {
+    stateRef.current = {
+      homeInput,
+      awayInput,
+      penWinner,
+      showPenPicker,
+      isDirty,
+      isComplete,
+    };
+  });
+
+  useEffect(() => {
+    if (!ctx || isLocked) return;
+    ctx.register(matchId, {
+      getPayload() {
+        const s = stateRef.current;
+        if (!s.isDirty || !s.isComplete) return null;
+        return {
+          matchId,
+          homeScore: Number(s.homeInput),
+          awayScore: Number(s.awayInput),
+          penaltyWinnerId: s.showPenPicker ? s.penWinner || null : null,
+        };
+      },
+      setStatus: setSaveStatus,
+    });
+    return () => ctx.unregister(matchId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx, matchId, isLocked]);
+
+  // Tell the context whenever dirty+complete changes
+  useEffect(() => {
+    if (!ctx || isLocked) return;
+    ctx.setDirty(matchId, isDirty && isComplete);
+  }, [ctx, matchId, isDirty, isComplete, isLocked]);
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  function handleEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && canSave) handleSave();
+  }
 
   function handleSave() {
     if (homeInput === "" || awayInput === "") return;
@@ -277,6 +327,8 @@ export function MatchCard({
   );
 }
 
+// ── ScoreInput — number box with external ▲/▼ buttons ────────────────────────
+
 function ScoreInput({
   value,
   onChange,
@@ -286,22 +338,62 @@ function ScoreInput({
   onChange: (v: string) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
+  const num = value === "" ? null : Number(value);
+
+  function step(delta: number) {
+    onChange(String(Math.min(30, Math.max(0, (num ?? 0) + delta))));
+  }
+
   return (
-    <input
-      type="number"
-      min={0}
-      max={30}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      className="h-9 w-10 rounded border border-border bg-background text-center text-sm font-bold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-    />
+    <div className="flex items-center gap-0.5">
+      <input
+        type="number"
+        min={0}
+        max={30}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        className="no-spinner h-9 rounded border border-border bg-background text-center text-sm font-bold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        style={{ width: "3.75rem" }}
+      />
+      <div className="flex flex-col">
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => step(1)}
+          disabled={num !== null && num >= 30}
+          className="flex h-4 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+          aria-label="Increase"
+        >
+          <svg width="8" height="6" viewBox="0 0 8 6" fill="currentColor">
+            <path d="M4 0L8 6H0L4 0Z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => step(-1)}
+          disabled={(num ?? 0) <= 0}
+          className="flex h-4 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
+          aria-label="Decrease"
+        >
+          <svg width="8" height="6" viewBox="0 0 8 6" fill="currentColor">
+            <path d="M4 6L0 0H8L4 6Z" />
+          </svg>
+        </button>
+      </div>
+    </div>
   );
 }
 
+// ── ScoreDisplay — locked-round score box (matches ScoreInput size) ───────────
+
 function ScoreDisplay({ value }: { value: number | null }) {
   return (
-    <div className="flex h-9 w-10 items-center justify-center rounded border bg-muted text-sm font-bold">
+    <div
+      className="flex h-9 items-center justify-center rounded border bg-muted text-sm font-bold"
+      style={{ width: "3.75rem" }}
+    >
       {value ?? "—"}
     </div>
   );

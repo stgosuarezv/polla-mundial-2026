@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { MatchCard } from "@/components/predictions/match-card";
+import { PredictionsForm } from "@/components/predictions/predictions-form";
 import { Countdown } from "@/components/countdown";
 
 interface Props {
@@ -79,89 +80,97 @@ export default async function PredictionsPage({ params }: Props) {
     noPrediction: t("noPrediction"),
   };
 
+  const tForm = {
+    saveAll: t("saveAll"),
+    saving: t("saving"),
+    saved: t("saved"),
+  };
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+    <PredictionsForm labels={tForm}>
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
 
-      {/* Countdown to next deadline */}
-      {nextRound && (
-        <Countdown
-          lockTime={nextRound.lock_time}
-          roundName={tRounds(
-            nextRound.name_key.replace("rounds.", "") as Parameters<typeof tRounds>[0]
-          )}
-          label={t("closesIn")}
-        />
-      )}
+        {/* Countdown to next deadline */}
+        {nextRound && (
+          <Countdown
+            lockTime={nextRound.lock_time}
+            roundName={tRounds(
+              nextRound.name_key.replace("rounds.", "") as Parameters<typeof tRounds>[0]
+            )}
+            label={t("closesIn")}
+          />
+        )}
 
-      {/* Round sections */}
-      {(rounds ?? []).map((round) => {
-        const isLocked = round.lock_time <= now;
-        const matches = (round.matches ?? []).sort(
-          (a, b) =>
-            new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
-        );
+        {/* Round sections */}
+        {(rounds ?? []).map((round) => {
+          const isLocked = round.lock_time <= now;
+          const matches = (round.matches ?? []).sort(
+            (a, b) =>
+              new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
+          );
 
-        const roundKey = round.name_key.replace(
-          "rounds.",
-          ""
-        ) as Parameters<typeof tRounds>[0];
+          const roundKey = round.name_key.replace(
+            "rounds.",
+            ""
+          ) as Parameters<typeof tRounds>[0];
 
-        return (
-          <section key={round.id}>
-            <div className="mb-3 flex items-center gap-2">
-              <h2 className="border-l-4 border-highlight pl-3 text-lg font-semibold text-[#1A2855] dark:text-foreground">{tRounds(roundKey)}</h2>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  isLocked
-                    ? "bg-muted text-muted-foreground"
-                    : "bg-green-100 text-green-700"
-                }`}
-              >
-                {isLocked ? t("locked") : t("open")}
-              </span>
-            </div>
+          return (
+            <section key={round.id}>
+              <div className="mb-3 flex items-center gap-2">
+                <h2 className="border-l-4 border-highlight pl-3 text-lg font-semibold text-[#1A2855] dark:text-foreground">{tRounds(roundKey)}</h2>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    isLocked
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {isLocked ? t("locked") : t("open")}
+                </span>
+              </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {matches.map((match) => {
-                const ht = Array.isArray(match.home_team)
-                  ? match.home_team[0]
-                  : match.home_team;
-                const at = Array.isArray(match.away_team)
-                  ? match.away_team[0]
-                  : match.away_team;
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {matches.map((match) => {
+                  const ht = Array.isArray(match.home_team)
+                    ? match.home_team[0]
+                    : match.home_team;
+                  const at = Array.isArray(match.away_team)
+                    ? match.away_team[0]
+                    : match.away_team;
 
-                return (
-                  <MatchCard
-                    key={match.id}
-                    matchId={match.id}
-                    homeTeam={
-                      ht
-                        ? { ...ht, name: teamName(ht, locale) ?? ht.code }
-                        : null
-                    }
-                    awayTeam={
-                      at
-                        ? { ...at, name: teamName(at, locale) ?? at.code }
-                        : null
-                    }
-                    kickoffAt={match.kickoff_at}
-                    locale={locale}
-                    status={match.status}
-                    actualHome={match.home_score}
-                    actualAway={match.away_score}
-                    actualPenaltyWinnerId={match.penalty_winner_team_id}
-                    isKnockout={round.stage === "knockout"}
-                    isLocked={isLocked}
-                    prediction={predByMatchId.get(match.id) ?? null}
-                    t={tCard}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
-    </div>
+                  return (
+                    <MatchCard
+                      key={match.id}
+                      matchId={match.id}
+                      homeTeam={
+                        ht
+                          ? { ...ht, name: teamName(ht, locale) ?? ht.code }
+                          : null
+                      }
+                      awayTeam={
+                        at
+                          ? { ...at, name: teamName(at, locale) ?? at.code }
+                          : null
+                      }
+                      kickoffAt={match.kickoff_at}
+                      locale={locale}
+                      status={match.status}
+                      actualHome={match.home_score}
+                      actualAway={match.away_score}
+                      actualPenaltyWinnerId={match.penalty_winner_team_id}
+                      isKnockout={round.stage === "knockout"}
+                      isLocked={isLocked}
+                      prediction={predByMatchId.get(match.id) ?? null}
+                      t={tCard}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </PredictionsForm>
   );
 }

@@ -70,3 +70,16 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
 }
+
+/* Hide native number-input spinners inside the box so we can render
+   custom ▲/▼ buttons outside it. Class is scoped so admin inputs
+   (no .no-spinner) keep their browser spinners. */
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
