@@ -128,15 +128,15 @@ export function PredictionsForm({ children, labels }: PredictionsFormProps) {
             className="rounded-full px-6 py-2.5 text-sm font-semibold shadow-lg transition-colors disabled:opacity-60"
             style={{
               backgroundColor:
-                bulkStatus === "saved" ? "#1EA64F" : "#1A2855",
+                bulkStatus === "saved" && count === 0 ? "#1EA64F" : "#1A2855",
               color: "#F5F0E6",
             }}
           >
             {bulkStatus === "saving"
               ? labels.saving
-              : bulkStatus === "saved"
-                ? labels.saved
-                : `${labels.saveAll} (${count})`}
+              : count > 0
+                ? `${labels.saveAll} (${count})`
+                : labels.saved}
           </button>
         </div>
       )}
