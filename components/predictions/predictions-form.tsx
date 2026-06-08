@@ -15,14 +15,17 @@ import { saveManyPredictions } from "@/lib/actions/predictions";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 interface CardHandle {
-  /** Returns payload when the card is dirty+complete, else null. */
+  /** Returns payload when the card is dirty+complete (and stashes a pending baseline), else null. */
   getPayload: () => {
     matchId: string;
     homeScore: number;
     awayScore: number;
     penaltyWinnerId?: string | null;
   } | null;
-  setStatus: (s: SaveStatus) => void;
+  /** Called just before the network request fires. */
+  onSaving: () => void;
+  /** Called with the server result; commits the baseline on success so isDirty resets. */
+  onResult: (ok: boolean) => void;
 }
 
 interface PredictionsFormContextValue {
@@ -94,7 +97,7 @@ export function PredictionsForm({ children, labels }: PredictionsFormProps) {
       if (payload) {
         payloads.push(payload);
         participating.push(matchId);
-        handle.setStatus("saving");
+        handle.onSaving();
       }
     }
 
@@ -103,9 +106,9 @@ export function PredictionsForm({ children, labels }: PredictionsFormProps) {
     setBulkStatus("saving");
     startTransition(async () => {
       const result = await saveManyPredictions(payloads);
-      const finalStatus = result.ok ? "saved" : "error";
+      // onResult commits the baseline on success → isDirty flips false → count drops
       for (const matchId of participating) {
-        cardsRef.current.get(matchId)?.setStatus(finalStatus);
+        cardsRef.current.get(matchId)?.onResult(result.ok);
       }
       setBulkStatus(result.ok ? "saved" : "idle");
     });

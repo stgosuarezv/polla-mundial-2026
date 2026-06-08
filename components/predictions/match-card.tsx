@@ -48,6 +48,15 @@ interface MatchCardProps {
   };
 }
 
+// The baseline of what's actually been persisted. isDirty compares inputs against
+// this (not the prediction prop), so it flips false immediately after a successful
+// save without needing the server to re-flow updated props into the mounted card.
+interface SavedBaseline {
+  home: string | number;
+  away: string | number;
+  pen: string;
+}
+
 export function MatchCard({
   matchId,
   homeTeam,
@@ -75,6 +84,16 @@ export function MatchCard({
   const [saveStatus, setSaveStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >(prediction !== null ? "saved" : "idle");
+
+  // Local baseline of what's been persisted — seeded from the server prediction prop.
+  // Updated on every successful save (single or bulk) so isDirty resets immediately
+  // without relying on the server re-streaming updated prediction props.
+  const [saved, setSaved] = useState<SavedBaseline>({
+    home: prediction?.home_score_pred ?? "",
+    away: prediction?.away_score_pred ?? "",
+    pen: prediction?.penalty_winner_team_id ?? "",
+  });
+
   const [, startTransition] = useTransition();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
@@ -85,17 +104,19 @@ export function MatchCard({
     awayInput !== "" &&
     Number(homeInput) === Number(awayInput);
 
+  // isDirty compares inputs against the local saved baseline, not the prop.
   const isDirty =
-    String(homeInput) !== String(prediction?.home_score_pred ?? "") ||
-    String(awayInput) !== String(prediction?.away_score_pred ?? "") ||
-    penWinner !== (prediction?.penalty_winner_team_id ?? "");
+    String(homeInput) !== String(saved.home) ||
+    String(awayInput) !== String(saved.away) ||
+    penWinner !== saved.pen;
 
   const isComplete = homeInput !== "" && awayInput !== "";
   const canSave = saveStatus !== "saving" && (isDirty || saveStatus === "error");
 
   // ── Bulk-save context integration ──────────────────────────────────────────
   const ctx = usePredictionsForm();
-  // Keep a stable ref to latest values so getPayload always reads current state
+
+  // Stable ref to latest values so getPayload always reads current state
   const stateRef = useRef({
     homeInput,
     awayInput,
@@ -115,12 +136,22 @@ export function MatchCard({
     };
   });
 
+  // Holds the baseline snapshot sent during a bulk save, so onResult can commit
+  // it to local state (and flip isDirty false) when the server confirms success.
+  const pendingRef = useRef<SavedBaseline | null>(null);
+
   useEffect(() => {
     if (!ctx || isLocked) return;
     ctx.register(matchId, {
       getPayload() {
         const s = stateRef.current;
         if (!s.isDirty || !s.isComplete) return null;
+        // Stash a snapshot of what we're about to send so onResult can commit it.
+        pendingRef.current = {
+          home: s.homeInput,
+          away: s.awayInput,
+          pen: s.showPenPicker ? s.penWinner : "",
+        };
         return {
           matchId,
           homeScore: Number(s.homeInput),
@@ -128,13 +159,23 @@ export function MatchCard({
           penaltyWinnerId: s.showPenPicker ? s.penWinner || null : null,
         };
       },
-      setStatus: setSaveStatus,
+      onSaving() {
+        setSaveStatus("saving");
+      },
+      onResult(ok: boolean) {
+        if (ok && pendingRef.current) {
+          // Commit the baseline → isDirty becomes false → setDirty(false) fires via effect
+          setSaved(pendingRef.current);
+          pendingRef.current = null;
+        }
+        setSaveStatus(ok ? "saved" : "error");
+      },
     });
     return () => ctx.unregister(matchId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx, matchId, isLocked]);
 
-  // Tell the context whenever dirty+complete changes
+  // Tell the context whenever dirty+complete state changes
   useEffect(() => {
     if (!ctx || isLocked) return;
     ctx.setDirty(matchId, isDirty && isComplete);
@@ -155,6 +196,14 @@ export function MatchCard({
         Number(awayInput),
         showPenPicker ? penWinner || null : null
       );
+      if (result.ok) {
+        // Commit the baseline so isDirty flips false and the bulk pill count drops
+        setSaved({
+          home: homeInput,
+          away: awayInput,
+          pen: showPenPicker ? penWinner : "",
+        });
+      }
       setSaveStatus(result.ok ? "saved" : "error");
     });
   }
