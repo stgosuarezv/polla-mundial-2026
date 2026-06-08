@@ -151,6 +151,12 @@
     "sync": {
       "syncTitle": "Sincronizar desde football-data.org",
       "syncDescription": "Descarga los resultados de partidos finalizados y actualiza la base de datos.",
+      "syncModeTitle": "Modo de sincronización automática",
+      "syncModeDescription": "En modo automático, GitHub Actions sincroniza los resultados de partidos y recalcula los puntos cada 5 minutos, pero solo cuando hay partidos pendientes de resultado. En modo manual, debes hacerlo tú.",
+      "modeSaved": "Guardado",
+      "modeError": "Error: {error}",
+      "modeManual": "Manual",
+      "modeAutomated": "Automático",
       "syncButton": "Sincronizar resultados",
       "syncing": "Sincronizando…",
       "syncSuccess": "Sincronizado: {updated} partidos actualizados.",

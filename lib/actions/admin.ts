@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scorePrediction, scorePodio } from "@/lib/scoring/scoring";
 import { syncResults } from "@/lib/sync";
+import { rescoreAllWithClient } from "@/lib/rescore";
 
 type ActionResult<T = undefined> =
   | { ok: true; data?: T }
@@ -87,120 +88,9 @@ export async function updateMatchResult(
 export async function rescoreAll(): Promise<ActionResult<{ updated: number }>> {
   const guard = await requireAdmin();
   if (guard) return guard;
-
   const admin = createAdminClient();
-
-  // Fetch all finished matches with their round stage
-  const { data: matches, error: matchErr } = await admin
-    .from("matches")
-    .select("id, home_score, away_score, penalty_winner_team_id, advancing_team_id, home_team_id, away_team_id, rounds(stage)")
-    .eq("status", "finished");
-
-  if (matchErr) return { ok: false, error: matchErr.message };
-  if (!matches?.length) return { ok: true, data: { updated: 0 } };
-
-  let updated = 0;
-
-  for (const match of matches) {
-    const roundData = Array.isArray(match.rounds) ? match.rounds[0] : match.rounds;
-    const stage = roundData?.stage === "group" ? "group" : "knockout";
-
-    const { data: preds } = await admin
-      .from("predictions")
-      .select("id, home_score_pred, away_score_pred, penalty_winner_team_id")
-      .eq("match_id", match.id);
-
-    if (!preds?.length) continue;
-
-    for (const pred of preds) {
-      const breakdown = scorePrediction(
-        {
-          home_score_pred: pred.home_score_pred,
-          away_score_pred: pred.away_score_pred,
-          penalty_winner_team_id: pred.penalty_winner_team_id,
-        },
-        {
-          home_score: match.home_score,
-          away_score: match.away_score,
-          penalty_winner_team_id: match.penalty_winner_team_id,
-          advancing_team_id: match.advancing_team_id,
-          home_team_id: match.home_team_id,
-          away_team_id: match.away_team_id,
-        },
-        stage
-      );
-
-      await admin
-        .from("predictions")
-        .update({ points_awarded: breakdown.total })
-        .eq("id", pred.id);
-
-      updated++;
-    }
-  }
-
-  // Score podio predictions if Final and 3rd Place matches are finished
-  const { data: finalRound } = await admin
-    .from("rounds")
-    .select("id")
-    .eq("name_key", "rounds.knockout_final")
-    .single();
-
-  const { data: thirdRound } = await admin
-    .from("rounds")
-    .select("id")
-    .eq("name_key", "rounds.knockout_3rd")
-    .single();
-
-  if (finalRound && thirdRound) {
-    const { data: finalMatch } = await admin
-      .from("matches")
-      .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
-      .eq("round_id", finalRound.id)
-      .eq("status", "finished")
-      .maybeSingle();
-
-    const { data: thirdMatch } = await admin
-      .from("matches")
-      .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
-      .eq("round_id", thirdRound.id)
-      .eq("status", "finished")
-      .maybeSingle();
-
-    if (finalMatch && thirdMatch) {
-      const champion =
-        finalMatch.advancing_team_id ??
-        (finalMatch.home_score > finalMatch.away_score
-          ? finalMatch.home_team_id
-          : finalMatch.away_team_id);
-      const runnerUp =
-        champion === finalMatch.home_team_id
-          ? finalMatch.away_team_id
-          : finalMatch.home_team_id;
-      const thirdPlace =
-        thirdMatch.advancing_team_id ??
-        (thirdMatch.home_score > thirdMatch.away_score
-          ? thirdMatch.home_team_id
-          : thirdMatch.away_team_id);
-
-      const actual = {
-        champion_team_id: champion,
-        runner_up_team_id: runnerUp,
-        third_place_team_id: thirdPlace,
-      };
-
-      const { data: podioPreds } = await admin
-        .from("podio_predictions")
-        .select("id, champion_team_id, runner_up_team_id, third_place_team_id");
-
-      for (const pred of podioPreds ?? []) {
-        const pts = scorePodio(pred, actual);
-        await admin.from("podio_predictions").update({ points_awarded: pts }).eq("id", pred.id);
-      }
-    }
-  }
-
-  return { ok: true, data: { updated } };
+  const result = await rescoreAllWithClient(admin);
+  return { ok: true, data: result };
 }
 
 // ── Update user display name ───────────────────────────────────────────────────
