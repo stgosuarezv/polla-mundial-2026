@@ -30,6 +30,48 @@ function teamCode(team: TeamLite | null | undefined): string {
   return team?.code ?? "TBD";
 }
 
+type CompletionState = "complete" | "partial" | "empty";
+
+function statusOf(made: number, total: number): CompletionState {
+  if (total === 0) return "empty";
+  if (made === 0) return "empty";
+  if (made >= total) return "complete";
+  return "partial";
+}
+
+interface StatusBadgeProps {
+  state: CompletionState;
+  label: string;
+}
+
+const STATUS_KEY: Record<CompletionState, "statusComplete" | "statusPartial" | "statusEmpty"> = {
+  complete: "statusComplete",
+  partial: "statusPartial",
+  empty: "statusEmpty",
+};
+
+function StatusBadge({ state, label }: StatusBadgeProps) {
+  if (state === "complete") {
+    return (
+      <span className="text-xs font-medium" style={{ color: "#16a34a" }}>
+        {label}
+      </span>
+    );
+  }
+  if (state === "partial") {
+    return (
+      <span className="text-xs font-medium" style={{ color: "#d97706" }}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
 function formatKickoffCL(iso: string, locale: string): string {
   const tag = locale === "ko" ? "ko-KR" : locale === "en" ? "en-US" : "es-CL";
   return new Date(iso).toLocaleString(tag, {
@@ -93,6 +135,22 @@ export default async function ScoreboardPage({ params }: Props) {
   }));
 
   const rows = computeLeaderboard(users, finishedWithStage, predictions);
+
+  // ── Prediction completion per player ────────────────────────────────────────
+  // SECURITY DEFINER fn returns counts only (no pick content) so it can see
+  // other players' unlocked-round predictions without leaking the actual picks.
+  const { data: completionData } = await supabase.rpc("prediction_completion");
+  const completionByUser = new Map<
+    string,
+    { made: number; total: number; podioSlots: number }
+  >();
+  for (const c of completionData ?? []) {
+    completionByUser.set(c.user_id, {
+      made: Number(c.made),
+      total: Number(c.total),
+      podioSlots: c.podio_slots,
+    });
+  }
 
   // ── Next-match preview ──────────────────────────────────────────────────────
   // Take the soonest upcoming match(es). Two simultaneous group matches are
@@ -199,6 +257,12 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                   {t("player")}
                 </th>
+                <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                  {t("completion")}
+                </th>
+                <th className="hidden px-3 py-2 text-center font-medium text-muted-foreground sm:table-cell whitespace-nowrap">
+                  {t("podio")}
+                </th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("points")}
                 </th>
@@ -258,6 +322,24 @@ export default async function ScoreboardPage({ params }: Props) {
                           {t("you")}
                         </span>
                       )}
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      {(() => {
+                        const c = completionByUser.get(row.userId);
+                        if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                        const state = statusOf(c.made, c.total);
+                        const label = t(STATUS_KEY[state]);
+                        return <StatusBadge state={state} label={label} />;
+                      })()}
+                    </td>
+                    <td className="hidden px-3 py-2.5 text-center sm:table-cell">
+                      {(() => {
+                        const c = completionByUser.get(row.userId);
+                        const slots = c?.podioSlots ?? 0;
+                        const state = statusOf(slots, 3);
+                        const label = t(STATUS_KEY[state]);
+                        return <StatusBadge state={state} label={label} />;
+                      })()}
                     </td>
                     <td className="px-3 py-2.5 text-right font-bold text-primary">
                       {row.totalPoints}
