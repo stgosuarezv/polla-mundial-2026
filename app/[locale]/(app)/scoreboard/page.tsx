@@ -257,12 +257,6 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                   {t("player")}
                 </th>
-                <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
-                  {t("completion")}
-                </th>
-                <th className="hidden px-3 py-2 text-center font-medium text-muted-foreground sm:table-cell whitespace-nowrap">
-                  {t("podio")}
-                </th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("points")}
                 </th>
@@ -291,6 +285,12 @@ export default async function ScoreboardPage({ params }: Props) {
                     </div>
                   </th>
                 ))}
+                <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                  {t("completion")}
+                </th>
+                <th className="hidden px-3 py-2 text-center font-medium text-muted-foreground sm:table-cell whitespace-nowrap">
+                  {t("podio")}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -322,24 +322,6 @@ export default async function ScoreboardPage({ params }: Props) {
                           {t("you")}
                         </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {(() => {
-                        const c = completionByUser.get(row.userId);
-                        if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
-                        const state = statusOf(c.made, c.total);
-                        const label = t(STATUS_KEY[state]);
-                        return <StatusBadge state={state} label={label} />;
-                      })()}
-                    </td>
-                    <td className="hidden px-3 py-2.5 text-center sm:table-cell">
-                      {(() => {
-                        const c = completionByUser.get(row.userId);
-                        const slots = c?.podioSlots ?? 0;
-                        const state = statusOf(slots, 3);
-                        const label = t(STATUS_KEY[state]);
-                        return <StatusBadge state={state} label={label} />;
-                      })()}
                     </td>
                     <td className="px-3 py-2.5 text-right font-bold text-primary">
                       {row.totalPoints}
@@ -380,6 +362,24 @@ export default async function ScoreboardPage({ params }: Props) {
                         </td>
                       );
                     })}
+                    <td className="px-3 py-2.5 text-center">
+                      {(() => {
+                        const c = completionByUser.get(row.userId);
+                        if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
+                        const state = statusOf(c.made, c.total);
+                        const label = t(STATUS_KEY[state]);
+                        return <StatusBadge state={state} label={label} />;
+                      })()}
+                    </td>
+                    <td className="hidden px-3 py-2.5 text-center sm:table-cell">
+                      {(() => {
+                        const c = completionByUser.get(row.userId);
+                        const slots = c?.podioSlots ?? 0;
+                        const state = statusOf(slots, 3);
+                        const label = t(STATUS_KEY[state]);
+                        return <StatusBadge state={state} label={label} />;
+                      })()}
+                    </td>
                   </tr>
                 );
               })}
