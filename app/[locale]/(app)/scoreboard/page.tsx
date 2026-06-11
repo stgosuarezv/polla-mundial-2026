@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
 import { cn } from "@/lib/utils";
 
@@ -115,12 +116,21 @@ export default async function ScoreboardPage({ params }: Props) {
   });
   const finishedIds = finishedWithStage.map((m) => m.id);
 
-  // All predictions for finished matches (RLS allows seeing others' in locked rounds)
+  // All predictions for finished matches (RLS allows seeing others' in locked
+  // rounds). Paginated: 50 players × 100+ matches exceeds the 1,000-row cap.
   const { data: preds } = finishedIds.length
-    ? await supabase
-        .from("predictions")
-        .select("user_id, match_id, points_awarded")
-        .in("match_id", finishedIds)
+    ? await fetchAllRows<{
+        user_id: string;
+        match_id: string;
+        points_awarded: number | null;
+      }>((from, to) =>
+        supabase
+          .from("predictions")
+          .select("user_id, match_id, points_awarded")
+          .in("match_id", finishedIds)
+          .order("id")
+          .range(from, to)
+      )
     : { data: [] };
 
   const users = (profiles ?? []).map((p) => ({
