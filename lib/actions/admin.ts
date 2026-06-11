@@ -80,6 +80,12 @@ export async function updateMatchResult(
     new_value: { home_score: homeScore, away_score: awayScore, status, penalty_winner_team_id: penaltyWinnerTeamId, advancing_team_id: advancingTeamId },
   });
 
+  // Score the result immediately — otherwise points only appear whenever the
+  // next sync cron pass happens to run a rescore.
+  if (status === "finished") {
+    await rescoreAllWithClient(admin);
+  }
+
   return { ok: true, data: { matchId } };
 }
 
