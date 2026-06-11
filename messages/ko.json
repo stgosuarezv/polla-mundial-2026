@@ -87,12 +87,17 @@
     "predictionsOf": "{name}의 예측",
     "backToScoreboard": "← 순위표로 돌아가기",
     "poolCaption": "총 상금: {amount} CLP — 상위 8명에게 분배. 상금표는 <link>규칙</link>에서 확인하세요.",
-    "playerCount": "{count, plural, =0 {참가자가 없습니다.} other {참가자 {count}명.}}",
+    "playerCount": "{count, plural, =0 {참가자가 없습니다.} other {참가자 {count}명}}",
     "completion": "다음 라운드 예측",
     "podio": "포디오",
     "statusComplete": "완료",
     "statusPartial": "부분",
-    "statusEmpty": "미입력"
+    "statusEmpty": "미입력",
+    "nextSummaryTitle": "{count, plural, other {다음 경기}}",
+    "draw": "무승부",
+    "modeScore": "최빈값",
+    "avgPrediction": "평균",
+    "seeWhoPicked": "선택한 플레이어 보기"
   },
   "admin": {
     "title": "관리자 패널",

@@ -87,12 +87,17 @@
     "predictionsOf": "Predictions by {name}",
     "backToScoreboard": "← Back to scoreboard",
     "poolCaption": "Total pool: {amount} CLP — top 8 win. See the prize table in the <link>rules</link>.",
-    "playerCount": "{count, plural, =0 {No players yet.} one {# player in the pool.} other {# players in the pool.}}",
+    "playerCount": "{count, plural, =0 {No players yet.} one {# player} other {# players}}",
     "completion": "Next Round Predictions",
     "podio": "Podio",
     "statusComplete": "Complete",
     "statusPartial": "Partial",
-    "statusEmpty": "Empty"
+    "statusEmpty": "Empty",
+    "nextSummaryTitle": "{count, plural, one {Next match} other {Next matches}}",
+    "draw": "Draw",
+    "modeScore": "Mode",
+    "avgPrediction": "Average",
+    "seeWhoPicked": "See who picked it"
   },
   "admin": {
     "title": "Admin Panel",

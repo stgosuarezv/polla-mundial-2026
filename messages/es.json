@@ -87,12 +87,17 @@
     "predictionsOf": "Predicciones de {name}",
     "backToScoreboard": "← Volver a la tabla",
     "poolCaption": "Pozo total: {amount} CLP — premio para los 8 primeros. Ver premios en las <link>reglas</link>.",
-    "playerCount": "{count, plural, =0 {Sin jugadores aún.} one {# jugador en la polla.} other {# jugadores en la polla.}}",
+    "playerCount": "{count, plural, =0 {Sin jugadores aún.} one {# jugador} other {# jugadores}}",
     "completion": "Predicción Próxima Ronda",
     "podio": "Podio",
     "statusComplete": "Completado",
     "statusPartial": "Parcial",
-    "statusEmpty": "Vacío"
+    "statusEmpty": "Vacío",
+    "nextSummaryTitle": "{count, plural, one {Próximo partido} other {Próximos partidos}}",
+    "draw": "Empate",
+    "modeScore": "Moda",
+    "avgPrediction": "Promedio",
+    "seeWhoPicked": "Ver quiénes lo predijeron"
   },
   "admin": {
     "title": "Panel de administración",
