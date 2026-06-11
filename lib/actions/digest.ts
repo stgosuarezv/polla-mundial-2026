@@ -352,6 +352,31 @@ interface SendResult {
   errors: string[];
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Resend's free tier rate-limits at 2 requests/second; a tight send loop
+// gets sporadic 429s (4 of 50 failed on the round-1 send). Retry transient
+// failures with backoff, and let callers pace the loop with sleep().
+async function sendWithRetry(payload: {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+}): Promise<string | null> {
+  let lastErr: string | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(800 * attempt);
+    try {
+      const { error } = await resend.emails.send(payload);
+      if (!error) return null;
+      lastErr = error.message;
+    } catch (e) {
+      lastErr = (e as Error).message;
+    }
+  }
+  return lastErr;
+}
+
 async function sendDigestForRound(
   roundId: string,
   triggeredBy: string | null
@@ -390,23 +415,19 @@ async function sendDigestForRound(
       teamsById: data.teamsById,
     });
 
-    try {
-      const { error: sendErr } = await resend.emails.send({
-        from: FROM_EMAIL,
-        to,
-        subject,
-        html,
-      });
-      if (sendErr) {
-        result.failed++;
-        result.errors.push(`${displayName}: ${sendErr.message}`);
-      } else {
-        result.sent++;
-      }
-    } catch (e) {
+    const sendErr = await sendWithRetry({ from: FROM_EMAIL, to, subject, html });
+    if (sendErr) {
       result.failed++;
-      result.errors.push(`${displayName}: ${(e as Error).message}`);
+      result.errors.push(`${displayName}: ${sendErr}`);
+    } else {
+      result.sent++;
     }
+    // Stay under Resend's 2 req/s limit.
+    await sleep(550);
+  }
+
+  if (result.errors.length) {
+    console.error(`[digest] round ${roundId} send errors:`, result.errors);
   }
 
   // Only mark the round as digested if at least one email actually went out.
@@ -425,6 +446,51 @@ async function sendDigestForRound(
   }
 
   return result;
+}
+
+// ── Send to a single user (targeted re-send after a partial failure) ─────────
+
+export async function sendDigestToUser(
+  roundId: string,
+  userId: string
+): Promise<ActionResult<{ displayName: string }>> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, error: "RESEND_API_KEY not set" };
+  }
+
+  const data = await fetchDigestData(roundId);
+  if ("error" in data) return { ok: false, error: data.error };
+
+  // The digest reveals every player's picks — never email it for a round
+  // that hasn't locked yet.
+  if (data.round.lock_time > new Date().toISOString()) {
+    return { ok: false, error: "Round not locked yet" };
+  }
+
+  const displayName = data.profilesById.get(userId);
+  if (!displayName) return { ok: false, error: "User not found" };
+
+  const { emails, error: emailsErr } = await getRecipientEmails([userId]);
+  const to = emails.get(userId);
+  if (!to) return { ok: false, error: emailsErr ?? "No email found for user" };
+
+  const locale = data.profileLocaleById.get(userId) ?? "es";
+  const { subject, html } = renderRoundDigest({
+    round: data.round,
+    recipient: { id: userId, displayName, locale },
+    matches: data.matches,
+    matchPredictions: data.matchPredictions,
+    podioPredictions: data.podioPredictions,
+    profilesById: data.profilesById,
+    teamsById: data.teamsById,
+  });
+
+  const sendErr = await sendWithRetry({ from: FROM_EMAIL, to, subject, html });
+  if (sendErr) return { ok: false, error: `${displayName}: ${sendErr}` };
+  return { ok: true, data: { displayName } };
 }
 
 // ── Process all eligible locked rounds ───────────────────────────────────────

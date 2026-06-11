@@ -10,6 +10,7 @@ import {
   previewDigestForUser,
   exportRoundDigestCsv,
   processLockedRoundsAsAdmin,
+  sendDigestToUser,
 } from "@/lib/actions/digest";
 
 interface RoundOption {
@@ -54,6 +55,11 @@ export function DigestSection({
   const [sending, startSending] = useTransition();
   const [sendMsg, setSendMsg] = useState<string | null>(null);
   const [sendErr, setSendErr] = useState<string | null>(null);
+  const [sendErrors, setSendErrors] = useState<string[]>([]);
+
+  const [sendingOne, startSendingOne] = useTransition();
+  const [sendOneMsg, setSendOneMsg] = useState<string | null>(null);
+  const [sendOneErr, setSendOneErr] = useState<string | null>(null);
 
   const [previewRoundId, setPreviewRoundId] = useState<string>(rounds[0]?.id ?? "");
   const [previewUserId, setPreviewUserId] = useState<string>(users[0]?.id ?? "");
@@ -89,6 +95,7 @@ export function DigestSection({
   function handleSend() {
     setSendMsg(null);
     setSendErr(null);
+    setSendErrors([]);
     startSending(async () => {
       const result = await processLockedRoundsAsAdmin();
       if (!result.ok) {
@@ -98,12 +105,26 @@ export function DigestSection({
       const sent = result.data?.rounds.reduce((s, r) => s + r.sent, 0) ?? 0;
       const failed = result.data?.rounds.reduce((s, r) => s + r.failed, 0) ?? 0;
       const roundsSent = result.data?.rounds.length ?? 0;
+      setSendErrors(result.data?.rounds.flatMap((r) => r.errors) ?? []);
       if (roundsSent === 0) {
         setSendMsg(t("sendNoEligible"));
       } else {
         setSendMsg(t("sendSummary", { rounds: roundsSent, sent, failed }));
         // Refresh the server-rendered "Recent sends" list and the eligible count.
         router.refresh();
+      }
+    });
+  }
+
+  function handleSendOne() {
+    setSendOneMsg(null);
+    setSendOneErr(null);
+    startSendingOne(async () => {
+      const result = await sendDigestToUser(previewRoundId, previewUserId);
+      if (result.ok && result.data) {
+        setSendOneMsg(t("sendOneSuccess", { name: result.data.displayName }));
+      } else if (!result.ok) {
+        setSendOneErr(result.error);
       }
     });
   }
@@ -192,6 +213,16 @@ export function DigestSection({
         </Button>
         {sendMsg && <p className="mt-2 text-sm text-green-600">{sendMsg}</p>}
         {sendErr && <p className="mt-2 text-sm text-destructive">{sendErr}</p>}
+        {sendErrors.length > 0 && (
+          <div className="mt-2 text-sm text-destructive">
+            <p className="font-medium">{t("sendFailuresTitle")}</p>
+            <ul className="mt-1 list-inside list-disc">
+              {sendErrors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Preview */}
@@ -242,7 +273,21 @@ export function DigestSection({
           >
             {previewing ? t("previewing") : t("previewButton")}
           </Button>
+          <Button
+            onClick={handleSendOne}
+            disabled={sendingOne || !previewRoundId || !previewUserId}
+            size="sm"
+            variant="outline"
+          >
+            {sendingOne ? t("sending") : t("sendOneButton")}
+          </Button>
         </div>
+        {sendOneMsg && (
+          <p className="mt-2 text-sm text-green-600">{sendOneMsg}</p>
+        )}
+        {sendOneErr && (
+          <p className="mt-2 text-sm text-destructive">{sendOneErr}</p>
+        )}
         {previewErr && (
           <p className="mt-2 text-sm text-destructive">{previewErr}</p>
         )}
