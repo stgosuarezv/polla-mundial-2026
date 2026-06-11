@@ -3,6 +3,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
+import { summarizeMatchPredictions } from "@/lib/scoring/prediction-summary";
+import {
+  NextMatchSummary,
+  type NextMatchSummaryItem,
+} from "@/components/scoreboard/next-match-summary";
 import { cn } from "@/lib/utils";
 
 const PRIZES_CLP = [
@@ -216,6 +221,28 @@ export default async function ScoreboardPage({ params }: Props) {
     });
   }
 
+  // ── Next-match prediction summary (bet365-style outcome/scoreline grid) ────
+  const nameByUserId = new Map(users.map((u) => [u.id, u.displayName]));
+  const nextSummaries: NextMatchSummaryItem[] = nextMatches
+    .filter((m) => m.roundClosed)
+    .map((m) => {
+      const preds = (nextPreds ?? [])
+        .filter((p) => p.match_id === m.id)
+        .map((p) => ({
+          home: p.home_score_pred,
+          away: p.away_score_pred,
+          player: nameByUserId.get(p.user_id) ?? "—",
+        }));
+      return {
+        id: m.id,
+        homeCode: teamCode(m.home),
+        awayCode: teamCode(m.away),
+        kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+        summary: summarizeMatchPredictions(preds),
+      };
+    })
+    .filter((s) => s.summary.total > 0);
+
   // Tied ranks split the combined pot for the positions they occupy.
   // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.
   const prizeByRank = new Map<number, number>();
@@ -253,6 +280,8 @@ export default async function ScoreboardPage({ params }: Props) {
       <p className="text-sm text-muted-foreground">
         {t("playerCount", { count: rows.length })}
       </p>
+
+      <NextMatchSummary matches={nextSummaries} />
 
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>

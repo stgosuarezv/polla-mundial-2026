@@ -92,7 +92,12 @@
     "podio": "Podio",
     "statusComplete": "Complete",
     "statusPartial": "Partial",
-    "statusEmpty": "Empty"
+    "statusEmpty": "Empty",
+    "nextSummaryTitle": "{count, plural, one {Next match — what the pool predicted} other {Next matches — what the pool predicted}}",
+    "draw": "Draw",
+    "modeScore": "Most picked score",
+    "avgPrediction": "Average prediction",
+    "seeWhoPicked": "See who picked it"
   },
   "admin": {
     "title": "Admin Panel",

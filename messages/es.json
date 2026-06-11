@@ -92,7 +92,12 @@
     "podio": "Podio",
     "statusComplete": "Completado",
     "statusPartial": "Parcial",
-    "statusEmpty": "Vacío"
+    "statusEmpty": "Vacío",
+    "nextSummaryTitle": "{count, plural, one {Próximo partido — qué predijo la polla} other {Próximos partidos — qué predijo la polla}}",
+    "draw": "Empate",
+    "modeScore": "Marcador más repetido",
+    "avgPrediction": "Predicción promedio",
+    "seeWhoPicked": "Ver quiénes lo predijeron"
   },
   "admin": {
     "title": "Panel de administración",

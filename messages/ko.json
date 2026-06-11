@@ -92,7 +92,12 @@
     "podio": "포디오",
     "statusComplete": "완료",
     "statusPartial": "부분",
-    "statusEmpty": "미입력"
+    "statusEmpty": "미입력",
+    "nextSummaryTitle": "{count, plural, other {다음 경기 — 풀의 예측}}",
+    "draw": "무승부",
+    "modeScore": "최다 선택 스코어",
+    "avgPrediction": "평균 예측",
+    "seeWhoPicked": "선택한 플레이어 보기"
   },
   "admin": {
     "title": "관리자 패널",
