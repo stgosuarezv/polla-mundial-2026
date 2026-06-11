@@ -307,10 +307,11 @@ export async function exportRoundDigestCsv(
 
 async function getRecipientEmails(
   userIds: string[]
-): Promise<Map<string, string>> {
+): Promise<{ emails: Map<string, string>; error?: string }> {
   // Use admin SDK to fetch auth.users emails by ID
   const admin = createAdminClient();
   const map = new Map<string, string>();
+  let listError: string | undefined;
   // listUsers paginates; one page (max 1000) is fine for ~50 users
   let page = 1;
   for (;;) {
@@ -318,7 +319,10 @@ async function getRecipientEmails(
       page,
       perPage: 1000,
     });
-    if (error) break;
+    if (error) {
+      listError = `listUsers failed: ${error.message}`;
+      break;
+    }
     for (const u of data.users) {
       if (u.email) map.set(u.id, u.email);
     }
@@ -328,7 +332,7 @@ async function getRecipientEmails(
   // Filter to requested
   const want = new Set(userIds);
   for (const id of [...map.keys()]) if (!want.has(id)) map.delete(id);
-  return map;
+  return { emails: map, error: listError };
 }
 
 interface SendResult {
@@ -350,8 +354,14 @@ async function sendDigestForRound(
     return result;
   }
 
+  if (!process.env.RESEND_API_KEY) {
+    result.errors.push("RESEND_API_KEY not set; no emails sent");
+    return result;
+  }
+
   const userIds = Array.from(data.profilesById.keys());
-  const emails = await getRecipientEmails(userIds);
+  const { emails, error: emailsErr } = await getRecipientEmails(userIds);
+  if (emailsErr) result.errors.push(emailsErr);
   const admin = createAdminClient();
 
   for (const userId of userIds) {
@@ -370,12 +380,6 @@ async function sendDigestForRound(
       profilesById: data.profilesById,
       teamsById: data.teamsById,
     });
-
-    if (!process.env.RESEND_API_KEY) {
-      result.errors.push("RESEND_API_KEY not set; skipping send");
-      result.failed++;
-      continue;
-    }
 
     try {
       const { error: sendErr } = await resend.emails.send({

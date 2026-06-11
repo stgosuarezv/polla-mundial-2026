@@ -85,7 +85,7 @@ export async function syncResults(admin: SupabaseClient<any>, apiKey: string): P
       }
     }
 
-    const { error } = await admin
+    const { data: updatedRows, error } = await admin
       .from("matches")
       .update({
         home_score: homeScore,
@@ -94,10 +94,15 @@ export async function syncResults(admin: SupabaseClient<any>, apiKey: string): P
         penalty_winner_team_id: penaltyWinnerTeamId,
         advancing_team_id: advancingTeamId,
       })
-      .eq("external_id", String(m.id));
+      .eq("external_id", String(m.id))
+      .select("id");
 
     if (error) {
       errors.push(`Match ${m.id}: ${error.message}`);
+    } else if (!updatedRows?.length) {
+      // 0-row update is not a PostgREST error — surface it instead of
+      // counting it as a successful sync.
+      errors.push(`Match ${m.id}: no match row with this external_id`);
     } else {
       updated++;
     }

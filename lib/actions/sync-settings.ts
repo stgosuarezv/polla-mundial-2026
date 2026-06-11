@@ -136,12 +136,11 @@ export async function syncAndRescoreAsCron(): Promise<
     return { ok: false, error: (err as Error).message };
   }
 
-  // 4. Rescore if any matches were updated
-  let rescored = 0;
-  if (syncResult.updated > 0) {
-    const rescoreResult = await rescoreAllWithClient(admin);
-    rescored = rescoreResult.updated;
-  }
+  // 4. Rescore — idempotent and cheap (≤104 matches), so run it on every
+  //    sync pass rather than only when this pass updated a match. This also
+  //    repairs scores after manual result entry or a previously failed run.
+  const rescoreResult = await rescoreAllWithClient(admin);
+  const rescored = rescoreResult.updated;
 
   return {
     ok: true,
