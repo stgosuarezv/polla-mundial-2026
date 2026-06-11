@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { resend, FROM_EMAIL } from "@/lib/email/resend";
 import {
   renderRoundDigest,
@@ -165,11 +166,19 @@ async function fetchDigestData(roundId: string): Promise<DigestData | { error: s
 
     if (matches.length > 0) {
       const matchIds = matches.map((m) => m.id);
-      const { data: preds } = await admin
-        .from("predictions")
-        .select("user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id")
-        .in("match_id", matchIds);
-      matchPredictions = (preds ?? []) as DigestMatchPrediction[];
+      const { data: preds, error: predsErr } =
+        await fetchAllRows<DigestMatchPrediction>((from, to) =>
+          admin
+            .from("predictions")
+            .select(
+              "user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id"
+            )
+            .in("match_id", matchIds)
+            .order("id")
+            .range(from, to)
+        );
+      if (predsErr) return { error: predsErr };
+      matchPredictions = preds;
     }
   }
 
