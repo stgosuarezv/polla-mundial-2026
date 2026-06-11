@@ -95,8 +95,8 @@
     "statusEmpty": "Empty",
     "nextSummaryTitle": "{count, plural, one {Next match — what the pool predicted} other {Next matches — what the pool predicted}}",
     "draw": "Draw",
-    "modeScore": "Most picked score",
-    "avgPrediction": "Average prediction",
+    "modeScore": "Mode",
+    "avgPrediction": "Average",
     "seeWhoPicked": "See who picked it"
   },
   "admin": {

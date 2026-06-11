@@ -24,6 +24,11 @@ interface NextMatchSummaryProps {
   matches: NextMatchSummaryItem[];
 }
 
+// Brand navy (#1A2855) tints — inline styles per the project's Tailwind-color
+// caveat.
+const NAVY_TINT_BG = { backgroundColor: "rgba(26, 40, 85, 0.07)" };
+const NAVY_TINT_BORDER = { borderColor: "rgba(26, 40, 85, 0.25)" };
+
 function ScoreChip({ group }: { group: ScorelineGroup }) {
   const t = useTranslations("scoreboard");
   return (
@@ -44,7 +49,7 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
         <p className="text-xs font-medium text-muted-foreground">
           {group.home}–{group.away} · ×{group.count}
         </p>
-        <ul className="max-h-48 overflow-y-auto text-sm">
+        <ul className="max-h-96 overflow-y-auto text-sm">
           {group.players.map((name) => (
             <li key={name} className="py-0.5">
               {name}
@@ -53,6 +58,35 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
         </ul>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function StatBox({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div
+      className="rounded-md border p-2 text-center"
+      style={{ ...NAVY_TINT_BG, ...NAVY_TINT_BORDER }}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-lg font-bold tabular-nums text-[#1A2855] dark:text-foreground">
+        {value}
+        {sub && (
+          <span className="ml-1 text-xs font-medium text-muted-foreground">
+            {sub}
+          </span>
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -65,8 +99,13 @@ function OutcomeColumn({
 }) {
   return (
     <div className="min-w-0">
-      <div className="rounded-t-md bg-muted/50 px-2 py-1.5 text-center">
-        <span className="text-xs font-semibold">{label}</span>
+      <div
+        className="rounded-t-md border px-2 py-1.5 text-center"
+        style={{ ...NAVY_TINT_BG, ...NAVY_TINT_BORDER }}
+      >
+        <span className="text-xs font-semibold text-[#1A2855] dark:text-foreground">
+          {label}
+        </span>
         <span className="ml-1.5 text-xs text-muted-foreground">
           {outcome.count}
         </span>
@@ -90,45 +129,43 @@ export function NextMatchSummary({ matches }: NextMatchSummaryProps) {
 
   return (
     <div className="space-y-2">
-      <h2 className="text-sm font-semibold text-muted-foreground">
+      <h2 className="text-center text-sm font-semibold text-muted-foreground">
         {t("nextSummaryTitle", { count: matches.length })}
       </h2>
       <div
         className={
-          matches.length > 1 ? "grid gap-4 md:grid-cols-2" : "max-w-xl"
+          matches.length > 1
+            ? "mx-auto grid max-w-4xl gap-4 md:grid-cols-2"
+            : "mx-auto max-w-xl"
         }
       >
         {matches.map((m) => (
           <div key={m.id} className="rounded-lg border p-3">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-semibold">
+              <span className="font-semibold text-[#1A2855] dark:text-foreground">
                 {m.homeCode} – {m.awayCode}
               </span>
               <span className="text-xs text-muted-foreground">
                 {m.kickoffLabel}
               </span>
             </div>
-            <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <StatBox
+                label={t("modeScore")}
+                value={m.summary.mode
+                  .map((s) => `${s.home}–${s.away}`)
+                  .join(" / ")}
+                sub={`×${m.summary.mode[0]?.count ?? 0}`}
+              />
+              <StatBox
+                label={t("avgPrediction")}
+                value={`${m.summary.avgHome.toFixed(1)} – ${m.summary.avgAway.toFixed(1)}`}
+              />
+            </div>
+            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
               <OutcomeColumn label={m.homeCode} outcome={m.summary.homeWin} />
               <OutcomeColumn label={t("draw")} outcome={m.summary.draw} />
               <OutcomeColumn label={m.awayCode} outcome={m.summary.awayWin} />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>
-                {t("modeScore")}:{" "}
-                <strong className="text-foreground">
-                  {m.summary.mode
-                    .map((s) => `${s.home}–${s.away}`)
-                    .join(" / ")}{" "}
-                  (×{m.summary.mode[0]?.count ?? 0})
-                </strong>
-              </span>
-              <span>
-                {t("avgPrediction")}:{" "}
-                <strong className="text-foreground tabular-nums">
-                  {m.summary.avgHome.toFixed(1)} – {m.summary.avgAway.toFixed(1)}
-                </strong>
-              </span>
             </div>
           </div>
         ))}

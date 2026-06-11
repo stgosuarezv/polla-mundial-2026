@@ -95,8 +95,8 @@
     "statusEmpty": "Vacío",
     "nextSummaryTitle": "{count, plural, one {Próximo partido — qué predijo la polla} other {Próximos partidos — qué predijo la polla}}",
     "draw": "Empate",
-    "modeScore": "Marcador más repetido",
-    "avgPrediction": "Predicción promedio",
+    "modeScore": "Moda",
+    "avgPrediction": "Promedio",
     "seeWhoPicked": "Ver quiénes lo predijeron"
   },
   "admin": {

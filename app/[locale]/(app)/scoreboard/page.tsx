@@ -288,7 +288,7 @@ export default async function ScoreboardPage({ params }: Props) {
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
+            <thead style={{ backgroundColor: "rgba(26, 40, 85, 0.07)" }}>
               <tr>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                   {t("rank")}
