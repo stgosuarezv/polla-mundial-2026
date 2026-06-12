@@ -10,6 +10,7 @@ import {
 } from "@/components/scoreboard/next-match-summary";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
+import { StatusColumnsToggle } from "@/components/scoreboard/status-columns-toggle";
 import { cn } from "@/lib/utils";
 
 const PRIZES_CLP = [
@@ -300,6 +301,7 @@ export default async function ScoreboardPage({ params }: Props) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
+        <StatusColumnsToggle label={t("toggleStatusColumns")}>
         <div id="scoreboard-table" className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead style={{ backgroundColor: "rgba(26, 40, 85, 0.07)" }}>
@@ -328,7 +330,7 @@ export default async function ScoreboardPage({ params }: Props) {
                 {nextMatches.map((m) => (
                   <th
                     key={m.id}
-                    className="hidden px-3 py-2 text-center font-medium text-muted-foreground md:table-cell whitespace-nowrap"
+                    className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
                   >
                     <div className="text-xs">
                       {teamCode(m.home)}–{teamCode(m.away)}
@@ -338,10 +340,16 @@ export default async function ScoreboardPage({ params }: Props) {
                     </div>
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                <th
+                  data-status-col=""
+                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                >
                   {t("completion")}
                 </th>
-                <th className="hidden px-3 py-2 text-center font-medium text-muted-foreground sm:table-cell whitespace-nowrap">
+                <th
+                  data-status-col=""
+                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                >
                   {t("podio")}
                 </th>
               </tr>
@@ -407,7 +415,7 @@ export default async function ScoreboardPage({ params }: Props) {
                       return (
                         <td
                           key={m.id}
-                          className="hidden px-3 py-2.5 text-center text-muted-foreground md:table-cell whitespace-nowrap"
+                          className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
                         >
                           {pred
                             ? `${pred.home_score_pred}–${pred.away_score_pred}`
@@ -415,7 +423,7 @@ export default async function ScoreboardPage({ params }: Props) {
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2.5 text-center">
+                    <td data-status-col="" className="px-3 py-2.5 text-center">
                       {(() => {
                         const c = completionByUser.get(row.userId);
                         if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
@@ -424,7 +432,7 @@ export default async function ScoreboardPage({ params }: Props) {
                         return <StatusBadge state={state} label={label} />;
                       })()}
                     </td>
-                    <td className="hidden px-3 py-2.5 text-center sm:table-cell">
+                    <td data-status-col="" className="px-3 py-2.5 text-center">
                       {(() => {
                         const c = completionByUser.get(row.userId);
                         const slots = c?.podioSlots ?? 0;
@@ -439,6 +447,7 @@ export default async function ScoreboardPage({ params }: Props) {
             </tbody>
           </table>
         </div>
+        </StatusColumnsToggle>
       )}
     </div>
   );

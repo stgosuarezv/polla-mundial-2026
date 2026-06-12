@@ -98,7 +98,8 @@
     "modeScore": "Moda",
     "avgPrediction": "Promedio",
     "seeWhoPicked": "Ver quiénes lo predijeron",
-    "downloadImage": "Descargar PNG"
+    "downloadImage": "Descargar PNG",
+    "toggleStatusColumns": "Columnas de estado"
   },
   "admin": {
     "title": "Panel de administración",
