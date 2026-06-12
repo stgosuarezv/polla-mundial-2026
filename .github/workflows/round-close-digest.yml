@@ -1,14 +1,10 @@
 name: Round-close digest
 
-# Runs every 30 minutes at HH:05 and HH:35 — offset 5 min past the hour/half-hour
-# to sidestep the GitHub-runner congestion spike that hits at :00 / :30.
-# The endpoint respects the admin's app_settings.digest_mode toggle, so this
-# workflow runs unconditionally; switching to manual mode in the admin UI takes
-# effect immediately without editing this file.
-
+# Scheduling moved to Supabase pg_cron (at :05 and :35) — GitHub's scheduled
+# workflows drift by hours. This workflow remains as a manual fallback:
+# trigger it from the Actions tab if pg_cron is ever down. The endpoint
+# respects the admin's app_settings.digest_mode toggle either way.
 on:
-  schedule:
-    - cron: '5,35 * * * *'
   workflow_dispatch: {}
 
 jobs:

@@ -162,7 +162,7 @@
       "syncTitle": "football-data.org에서 동기화",
       "syncDescription": "완료된 경기 결과를 가져와 데이터베이스를 업데이트합니다.",
       "syncModeTitle": "자동 동기화 모드",
-      "syncModeDescription": "자동 모드에서는 GitHub Actions가 5분마다 경기 결과를 동기화하고 점수를 재계산합니다. 단, 결과가 필요한 경기가 있을 때만 실행됩니다. 수동 모드에서는 직접 실행해야 합니다.",
+      "syncModeDescription": "자동 모드에서는 시스템이 1분마다 경기 결과를 동기화하고 점수를 재계산합니다. 단, 결과가 필요한 경기가 있을 때만 실행됩니다. 수동 모드에서는 직접 실행해야 합니다.",
       "modeSaved": "저장됨",
       "modeError": "오류: {error}",
       "modeManual": "수동",
@@ -204,7 +204,7 @@
     },
     "digest": {
       "modeTitle": "라운드 마감 공지 모드",
-      "modeDescription": "자동 모드에서는 라운드가 마감될 때 GitHub Actions가 모든 참가자에게 공지를 보냅니다. 수동 모드에서는 아래 버튼을 직접 눌러야 합니다.",
+      "modeDescription": "자동 모드에서는 라운드가 마감될 때 시스템이 모든 참가자에게 공지를 보냅니다. 수동 모드에서는 아래 버튼을 직접 눌러야 합니다.",
       "modeManual": "수동",
       "modeAutomated": "자동",
       "modeSaved": "저장됨",

@@ -111,12 +111,14 @@ export async function syncAndRescoreAsCron(): Promise<
     return { ok: true, data: { skipped: "manual mode" } };
   }
 
-  // 2. Smart-skip: are there any matches that kicked off ≥ 2 hours ago
-  //    and aren't finished yet? If not, nothing to poll for.
+  // 2. Smart-skip: are there any matches that kicked off ≥ 105 minutes ago
+  //    and aren't finished yet? If not, nothing to poll for. A match can't
+  //    end before ~kickoff + 1h47 (90' + 15' halftime + stoppage), so this
+  //    opens the polling window just before the earliest possible full time.
   const { count } = await admin
     .from("matches")
     .select("id", { count: "exact", head: true })
-    .lt("kickoff_at", new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString())
+    .lt("kickoff_at", new Date(Date.now() - 105 * 60 * 1000).toISOString())
     .neq("status", "finished");
 
   if ((count ?? 0) === 0) {
