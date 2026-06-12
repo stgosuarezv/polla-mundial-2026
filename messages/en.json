@@ -97,7 +97,9 @@
     "draw": "Draw",
     "modeScore": "Mode",
     "avgPrediction": "Average",
-    "seeWhoPicked": "See who picked it"
+    "seeWhoPicked": "See who picked it",
+    "downloadImage": "Download PNG",
+    "toggleStatusColumns": "Status columns"
   },
   "admin": {
     "title": "Admin Panel",

@@ -8,6 +8,9 @@ import {
   NextMatchSummary,
   type NextMatchSummaryItem,
 } from "@/components/scoreboard/next-match-summary";
+import { PdfButton } from "@/components/rules/pdf-button";
+import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
+import { StatusColumnsToggle } from "@/components/scoreboard/status-columns-toggle";
 import { cn } from "@/lib/utils";
 
 const PRIZES_CLP = [
@@ -96,6 +99,7 @@ interface Props {
 export default async function ScoreboardPage({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations("scoreboard");
+  const tRules = await getTranslations("rules");
   const supabase = await createClient();
 
   const {
@@ -168,8 +172,10 @@ export default async function ScoreboardPage({ params }: Props) {
   }
 
   // ── Next-match preview ──────────────────────────────────────────────────────
-  // Take the soonest upcoming match(es). Two simultaneous group matches are
-  // common (same kickoff_at) so we include all of them. Limit to 4 just in case.
+  // Take the soonest match(es) not yet finished — including in-play ones, so
+  // the stats stay visible while a match is being played. Two simultaneous
+  // group matches are common (same kickoff_at) so we include all of them.
+  // Limit to 4 just in case.
   const nowIso = new Date().toISOString();
   const { data: upcoming } = await supabase
     .from("matches")
@@ -180,7 +186,6 @@ export default async function ScoreboardPage({ params }: Props) {
        rounds!inner ( id, lock_time )`
     )
     .neq("status", "finished")
-    .gte("kickoff_at", nowIso)
     .order("kickoff_at", { ascending: true })
     .limit(4);
 
@@ -261,7 +266,17 @@ export default async function ScoreboardPage({ params }: Props) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+        <div className="flex items-center gap-2">
+          <DownloadImageButton
+            targetId="scoreboard-table"
+            fileName="tabla-polla-mundial.png"
+            label={t("downloadImage")}
+          />
+          <PdfButton label={tRules("downloadPdf")} />
+        </div>
+      </div>
 
       <p className="text-sm text-muted-foreground">
         {t.rich("poolCaption", {
@@ -286,7 +301,8 @@ export default async function ScoreboardPage({ params }: Props) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <StatusColumnsToggle label={t("toggleStatusColumns")}>
+        <div id="scoreboard-table" className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead style={{ backgroundColor: "rgba(26, 40, 85, 0.07)" }}>
               <tr>
@@ -314,7 +330,7 @@ export default async function ScoreboardPage({ params }: Props) {
                 {nextMatches.map((m) => (
                   <th
                     key={m.id}
-                    className="hidden px-3 py-2 text-center font-medium text-muted-foreground md:table-cell whitespace-nowrap"
+                    className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
                   >
                     <div className="text-xs">
                       {teamCode(m.home)}–{teamCode(m.away)}
@@ -324,10 +340,16 @@ export default async function ScoreboardPage({ params }: Props) {
                     </div>
                   </th>
                 ))}
-                <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                <th
+                  data-status-col=""
+                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                >
                   {t("completion")}
                 </th>
-                <th className="hidden px-3 py-2 text-center font-medium text-muted-foreground sm:table-cell whitespace-nowrap">
+                <th
+                  data-status-col=""
+                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                >
                   {t("podio")}
                 </th>
               </tr>
@@ -393,7 +415,7 @@ export default async function ScoreboardPage({ params }: Props) {
                       return (
                         <td
                           key={m.id}
-                          className="hidden px-3 py-2.5 text-center text-muted-foreground md:table-cell whitespace-nowrap"
+                          className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
                         >
                           {pred
                             ? `${pred.home_score_pred}–${pred.away_score_pred}`
@@ -401,7 +423,7 @@ export default async function ScoreboardPage({ params }: Props) {
                         </td>
                       );
                     })}
-                    <td className="px-3 py-2.5 text-center">
+                    <td data-status-col="" className="px-3 py-2.5 text-center">
                       {(() => {
                         const c = completionByUser.get(row.userId);
                         if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
@@ -410,7 +432,7 @@ export default async function ScoreboardPage({ params }: Props) {
                         return <StatusBadge state={state} label={label} />;
                       })()}
                     </td>
-                    <td className="hidden px-3 py-2.5 text-center sm:table-cell">
+                    <td data-status-col="" className="px-3 py-2.5 text-center">
                       {(() => {
                         const c = completionByUser.get(row.userId);
                         const slots = c?.podioSlots ?? 0;
@@ -425,6 +447,7 @@ export default async function ScoreboardPage({ params }: Props) {
             </tbody>
           </table>
         </div>
+        </StatusColumnsToggle>
       )}
     </div>
   );

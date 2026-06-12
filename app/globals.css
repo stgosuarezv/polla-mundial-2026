@@ -83,3 +83,9 @@ body {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Scoreboard: the status-columns toggle hides the next-round completion and
+   podio columns (cells tagged with data-status-col). */
+.hide-status-cols [data-status-col] {
+  display: none;
+}
