@@ -8,6 +8,7 @@ import {
   NextMatchSummary,
   type NextMatchSummaryItem,
 } from "@/components/scoreboard/next-match-summary";
+import { PdfButton } from "@/components/rules/pdf-button";
 import { cn } from "@/lib/utils";
 
 const PRIZES_CLP = [
@@ -96,6 +97,7 @@ interface Props {
 export default async function ScoreboardPage({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations("scoreboard");
+  const tRules = await getTranslations("rules");
   const supabase = await createClient();
 
   const {
@@ -168,8 +170,10 @@ export default async function ScoreboardPage({ params }: Props) {
   }
 
   // ── Next-match preview ──────────────────────────────────────────────────────
-  // Take the soonest upcoming match(es). Two simultaneous group matches are
-  // common (same kickoff_at) so we include all of them. Limit to 4 just in case.
+  // Take the soonest match(es) not yet finished — including in-play ones, so
+  // the stats stay visible while a match is being played. Two simultaneous
+  // group matches are common (same kickoff_at) so we include all of them.
+  // Limit to 4 just in case.
   const nowIso = new Date().toISOString();
   const { data: upcoming } = await supabase
     .from("matches")
@@ -180,7 +184,6 @@ export default async function ScoreboardPage({ params }: Props) {
        rounds!inner ( id, lock_time )`
     )
     .neq("status", "finished")
-    .gte("kickoff_at", nowIso)
     .order("kickoff_at", { ascending: true })
     .limit(4);
 
@@ -261,7 +264,10 @@ export default async function ScoreboardPage({ params }: Props) {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+        <PdfButton label={tRules("downloadPdf")} />
+      </div>
 
       <p className="text-sm text-muted-foreground">
         {t.rich("poolCaption", {

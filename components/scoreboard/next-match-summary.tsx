@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
 import {
   Popover,
   PopoverContent,
@@ -24,10 +25,14 @@ interface NextMatchSummaryProps {
   matches: NextMatchSummaryItem[];
 }
 
-// Brand navy (#1A2855) tints — inline styles per the project's Tailwind-color
-// caveat.
+// Brand navy (#1A2855) tint — inline styles per the project's Tailwind-color
+// caveat. Borders are black in light mode / white in dark mode (same caveat).
 const NAVY_TINT_BG = { backgroundColor: "rgba(26, 40, 85, 0.07)" };
-const NAVY_TINT_BORDER = { borderColor: "rgba(26, 40, 85, 0.25)" };
+
+function useBoxBorder() {
+  const { resolvedTheme } = useTheme();
+  return { borderColor: resolvedTheme === "dark" ? "#ffffff" : "#000000" };
+}
 
 function ScoreChip({ group }: { group: ScorelineGroup }) {
   const t = useTranslations("scoreboard");
@@ -70,10 +75,11 @@ function StatBox({
   value: string;
   sub?: string;
 }) {
+  const boxBorder = useBoxBorder();
   return (
     <div
       className="rounded-md border p-2 text-center"
-      style={{ ...NAVY_TINT_BG, ...NAVY_TINT_BORDER }}
+      style={{ ...NAVY_TINT_BG, ...boxBorder }}
     >
       <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
@@ -97,11 +103,12 @@ function OutcomeColumn({
   label: string;
   outcome: OutcomeSummary;
 }) {
+  const boxBorder = useBoxBorder();
   return (
     <div className="min-w-0">
       <div
         className="rounded-t-md border px-2 py-1.5 text-center"
-        style={{ ...NAVY_TINT_BG, ...NAVY_TINT_BORDER }}
+        style={{ ...NAVY_TINT_BG, ...boxBorder }}
       >
         <span className="text-xs font-semibold text-[#1A2855] dark:text-foreground">
           {label}
@@ -110,7 +117,10 @@ function OutcomeColumn({
           {outcome.count}
         </span>
       </div>
-      <div className="space-y-1 rounded-b-md border border-t-0 p-1.5">
+      <div
+        className="space-y-1 rounded-b-md border border-t-0 p-1.5"
+        style={boxBorder}
+      >
         {outcome.scores.length === 0 ? (
           <p className="py-1 text-center text-xs text-muted-foreground">—</p>
         ) : (
