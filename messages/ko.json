@@ -97,7 +97,8 @@
     "draw": "무승부",
     "modeScore": "최빈값",
     "avgPrediction": "평균",
-    "seeWhoPicked": "선택한 플레이어 보기"
+    "seeWhoPicked": "선택한 플레이어 보기",
+    "downloadImage": "PNG 다운로드"
   },
   "admin": {
     "title": "관리자 패널",

@@ -9,6 +9,7 @@ import {
   type NextMatchSummaryItem,
 } from "@/components/scoreboard/next-match-summary";
 import { PdfButton } from "@/components/rules/pdf-button";
+import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import { cn } from "@/lib/utils";
 
 const PRIZES_CLP = [
@@ -266,7 +267,14 @@ export default async function ScoreboardPage({ params }: Props) {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
-        <PdfButton label={tRules("downloadPdf")} />
+        <div className="flex items-center gap-2">
+          <DownloadImageButton
+            targetId="scoreboard-table"
+            fileName="tabla-polla-mundial.png"
+            label={t("downloadImage")}
+          />
+          <PdfButton label={tRules("downloadPdf")} />
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -292,7 +300,7 @@ export default async function ScoreboardPage({ params }: Props) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <div id="scoreboard-table" className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead style={{ backgroundColor: "rgba(26, 40, 85, 0.07)" }}>
               <tr>
