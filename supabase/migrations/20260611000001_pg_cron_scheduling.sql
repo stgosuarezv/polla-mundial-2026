@@ -8,10 +8,12 @@
 -- endpoints the workflows used.
 --
 -- Secrets live in Supabase Vault (never in this repo):
---   cron_url    — e.g. https://pollamundial.cl
+--   cron_url    — https://www.pollamundial.cl (MUST be www: the apex 307s to
+--                 www and libcurl/pg_net drops the Authorization header on
+--                 the host change, yielding silent 401s)
 --   cron_secret — must equal the CRON_SECRET env var on Vercel
 -- Seed them once via the SQL editor:
---   select vault.create_secret('https://pollamundial.cl', 'cron_url');
+--   select vault.create_secret('https://www.pollamundial.cl', 'cron_url');
 --   select vault.create_secret('<CRON_SECRET value>', 'cron_secret');
 -- Until both exist, jobs no-op with a NOTICE instead of erroring every minute.
 -- =============================================================================
