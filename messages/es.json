@@ -162,7 +162,7 @@
       "syncTitle": "Sincronizar desde football-data.org",
       "syncDescription": "Descarga los resultados de partidos finalizados y actualiza la base de datos.",
       "syncModeTitle": "Modo de sincronización automática",
-      "syncModeDescription": "En modo automático, GitHub Actions sincroniza los resultados de partidos y recalcula los puntos cada 5 minutos, pero solo cuando hay partidos pendientes de resultado. En modo manual, debes hacerlo tú.",
+      "syncModeDescription": "En modo automático, el sistema sincroniza los resultados de partidos y recalcula los puntos cada minuto, pero solo cuando hay partidos pendientes de resultado. En modo manual, debes hacerlo tú.",
       "modeSaved": "Guardado",
       "modeError": "Error: {error}",
       "modeManual": "Manual",
@@ -204,7 +204,7 @@
     },
     "digest": {
       "modeTitle": "Modo de envío del resumen",
-      "modeDescription": "En modo automático, GitHub Actions envía el resumen a todos los jugadores cuando una ronda cierra. En modo manual, debes apretar el botón abajo.",
+      "modeDescription": "En modo automático, el sistema envía el resumen a todos los jugadores cuando una ronda cierra. En modo manual, debes apretar el botón abajo.",
       "modeManual": "Manual",
       "modeAutomated": "Automático",
       "modeSaved": "Guardado",

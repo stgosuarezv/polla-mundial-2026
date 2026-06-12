@@ -1,10 +1,11 @@
 // =============================================================================
 // Cron endpoint: POST /api/cron/sync-results
 //
-// Called by GitHub Actions every 5 min. Bearer-token guarded against the
-// CRON_SECRET env var. Respects the app_settings.sync_mode toggle — if admin
-// has set it to 'manual', this endpoint returns { skipped } without hitting
-// football-data.org. Also smart-skips when no matches kicked off ≥ 2 hours
+// Called by Supabase pg_cron every minute (GitHub Actions remains a manual
+// workflow_dispatch fallback). Bearer-token guarded against the CRON_SECRET
+// env var. Respects the app_settings.sync_mode toggle — if admin has set it
+// to 'manual', this endpoint returns { skipped } without hitting
+// football-data.org. Also smart-skips when no matches kicked off ≥ 105 min
 // ago are still pending (rest days / pre-match periods cost zero API calls).
 //
 // On 'automated' mode with pending matches:

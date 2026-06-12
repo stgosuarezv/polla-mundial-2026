@@ -1,14 +1,10 @@
 name: Auto sync match results
 
+# Scheduling moved to Supabase pg_cron (every minute) — GitHub's scheduled
+# workflows drifted badly (gaps of 1.5–3 h observed on 2026-06-11), which
+# delayed result syncs past full time. This workflow remains as a manual
+# fallback: trigger it from the Actions tab if pg_cron is ever down.
 on:
-  # Every 5 minutes. GitHub Actions has a ~5-min floor on scheduled workflows,
-  # so this is the practical minimum. The endpoint itself smart-skips when
-  # no matches kicked off ≥ 2 hours ago are still pending — zero football-data.org
-  # API calls on rest days or before the result window opens.
-  # Switching sync_mode to 'manual' in the admin panel takes effect immediately
-  # without editing this file.
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 jobs:
