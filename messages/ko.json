@@ -70,7 +70,8 @@
     "noPrediction": "예측 없음",
     "pointsBreakdown": "점수 내역",
     "allPredictions": "모든 예측",
-    "saveAll": "모두 저장"
+    "saveAll": "모두 저장",
+    "stats": "통계"
   },
   "scoreboard": {
     "title": "순위표",
@@ -101,7 +102,9 @@
     "downloadImage": "PNG 다운로드",
     "toggleStatusColumns": "상태 열",
     "lastMatchLabel": "최근 경기",
-    "lastMatchFootnote": "* 두 경기가 동시에 시작된 경우 점수를 합산합니다."
+    "lastMatchFootnote": "* 두 경기가 동시에 시작된 경우 점수를 합산합니다.",
+    "matchStatsTitle": "예측 통계",
+    "selectMatch": "경기 선택"
   },
   "admin": {
     "title": "관리자 패널",

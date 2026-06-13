@@ -70,7 +70,8 @@
     "noPrediction": "Sin predicción",
     "pointsBreakdown": "Desglose de puntos",
     "allPredictions": "Todas las predicciones",
-    "saveAll": "Guardar todo"
+    "saveAll": "Guardar todo",
+    "stats": "Stats"
   },
   "scoreboard": {
     "title": "Tabla de posiciones",
@@ -101,7 +102,9 @@
     "downloadImage": "Descargar PNG",
     "toggleStatusColumns": "Columnas de estado",
     "lastMatchLabel": "Último Partido",
-    "lastMatchFootnote": "* Si dos partidos se jugaron simultáneamente, los puntos se suman."
+    "lastMatchFootnote": "* Si dos partidos se jugaron simultáneamente, los puntos se suman.",
+    "matchStatsTitle": "Estadísticas de predicciones",
+    "selectMatch": "Seleccionar partido"
   },
   "admin": {
     "title": "Panel de administración",

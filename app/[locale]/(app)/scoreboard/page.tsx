@@ -3,11 +3,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
-import { summarizeMatchPredictions } from "@/lib/scoring/prediction-summary";
+import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
 import {
-  NextMatchSummary,
-  type NextMatchSummaryItem,
-} from "@/components/scoreboard/next-match-summary";
+  MatchStatsBrowser,
+  type MatchStatsGroup,
+} from "@/components/scoreboard/match-stats-browser";
+import type { MatchStatsItem } from "@/components/scoreboard/match-stats-card";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import { StatusColumnsToggle } from "@/components/scoreboard/status-columns-toggle";
@@ -101,6 +102,7 @@ export default async function ScoreboardPage({ params }: Props) {
   const t = await getTranslations("scoreboard");
   const tRules = await getTranslations("rules");
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
   const {
     data: { user },
@@ -147,6 +149,9 @@ export default async function ScoreboardPage({ params }: Props) {
     displayName: p.display_name,
   }));
 
+  // nameByUserId used by loadMatchSummaries and table rendering
+  const nameByUserId = new Map(users.map((u) => [u.id, u.displayName]));
+
   const predictions = (preds ?? []).map((p) => ({
     userId: p.user_id,
     matchId: p.match_id,
@@ -192,12 +197,88 @@ export default async function ScoreboardPage({ params }: Props) {
     });
   }
 
-  // ── Next-match preview ──────────────────────────────────────────────────────
+  // ── Match-stats browser ──────────────────────────────────────────────────────
+  // All matches from locked rounds — used to populate the browseable stat panel
+  // (dropdown). Filtering by locked rounds is done client-side: PostgREST does
+  // not expose a clean way to filter on a join column via the JS client.
+  const { data: allMatchesWithRound } = await supabase
+    .from("matches")
+    .select(
+      `id, kickoff_at, status,
+       home_team:home_team_id ( code ),
+       away_team:away_team_id ( code ),
+       rounds!inner ( lock_time )`
+    )
+    .order("kickoff_at", { ascending: true });
+
+  const lockedMatchesForBrowser = (allMatchesWithRound ?? []).filter((m) => {
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    return round && round.lock_time <= nowIso;
+  });
+
+  const summaryByMatchId = await loadMatchSummaries(
+    supabase,
+    lockedMatchesForBrowser.map((m) => m.id),
+    nameByUserId
+  );
+
+  // Group by kickoff_at so simultaneous matches share one dropdown entry.
+  type BrowserGroupRaw = {
+    kickoffAt: string;
+    hasUnfinished: boolean;
+    items: MatchStatsItem[];
+  };
+  const browserGroupMap = new Map<string, BrowserGroupRaw>();
+  for (const m of lockedMatchesForBrowser) {
+    const summary = summaryByMatchId.get(m.id);
+    if (!summary || summary.total === 0) continue; // no picks yet → skip
+
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+
+    const existing = browserGroupMap.get(m.kickoff_at) ?? {
+      kickoffAt: m.kickoff_at,
+      hasUnfinished: false,
+      items: [] as MatchStatsItem[],
+    };
+    existing.items.push({
+      id: m.id,
+      homeCode: home?.code ?? "TBD",
+      awayCode: away?.code ?? "TBD",
+      kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+      summary,
+    });
+    if (m.status !== "finished") existing.hasUnfinished = true;
+    browserGroupMap.set(m.kickoff_at, existing);
+  }
+
+  const browserGroups: MatchStatsGroup[] = [...browserGroupMap.values()]
+    .sort((a, b) => a.kickoffAt.localeCompare(b.kickoffAt))
+    .map((g) => ({
+      id: g.items[0]!.id,
+      label:
+        g.items.map((i) => `${i.homeCode}–${i.awayCode}`).join(" / ") +
+        " · " +
+        formatKickoffCL(g.kickoffAt, locale),
+      items: g.items,
+    }));
+
+  // Default: soonest group that has an unfinished match (round locked but match
+  // not yet played), else the latest group (most recently finished).
+  const firstActiveRaw = [...browserGroupMap.values()].find((g) => g.hasUnfinished);
+  const defaultGroupId =
+    (firstActiveRaw
+      ? browserGroups.find((bg) =>
+          bg.items.some((i) => firstActiveRaw.items.some((ri) => ri.id === i.id))
+        )
+      : browserGroups[browserGroups.length - 1]
+    )?.id ?? "";
+
+  // ── Next-match table-column preview ─────────────────────────────────────────
   // Take the soonest match(es) not yet finished — including in-play ones, so
   // the stats stay visible while a match is being played. Two simultaneous
   // group matches are common (same kickoff_at) so we include all of them.
   // Limit to 4 just in case.
-  const nowIso = new Date().toISOString();
   const { data: upcoming } = await supabase
     .from("matches")
     .select(
@@ -247,28 +328,6 @@ export default async function ScoreboardPage({ params }: Props) {
     });
   }
 
-  // ── Next-match prediction summary (bet365-style outcome/scoreline grid) ────
-  const nameByUserId = new Map(users.map((u) => [u.id, u.displayName]));
-  const nextSummaries: NextMatchSummaryItem[] = nextMatches
-    .filter((m) => m.roundClosed)
-    .map((m) => {
-      const preds = (nextPreds ?? [])
-        .filter((p) => p.match_id === m.id)
-        .map((p) => ({
-          home: p.home_score_pred,
-          away: p.away_score_pred,
-          player: nameByUserId.get(p.user_id) ?? "—",
-        }));
-      return {
-        id: m.id,
-        homeCode: teamCode(m.home),
-        awayCode: teamCode(m.away),
-        kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
-        summary: summarizeMatchPredictions(preds),
-      };
-    })
-    .filter((s) => s.summary.total > 0);
-
   // Tied ranks split the combined pot for the positions they occupy.
   // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.
   const prizeByRank = new Map<number, number>();
@@ -317,7 +376,12 @@ export default async function ScoreboardPage({ params }: Props) {
         {t("playerCount", { count: rows.length })}
       </p>
 
-      <NextMatchSummary matches={nextSummaries} />
+      {browserGroups.length > 0 && (
+        <MatchStatsBrowser
+          groups={browserGroups}
+          defaultGroupId={defaultGroupId}
+        />
+      )}
 
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
