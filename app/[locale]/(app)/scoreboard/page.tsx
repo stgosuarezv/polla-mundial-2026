@@ -9,6 +9,10 @@ import {
   type MatchStatsGroup,
 } from "@/components/scoreboard/match-stats-browser";
 import type { MatchStatsItem } from "@/components/scoreboard/match-stats-card";
+import {
+  WhatIfPanel,
+  type WhatIfMatch,
+} from "@/components/scoreboard/what-if-panel";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import { StatusColumnsToggle } from "@/components/scoreboard/status-columns-toggle";
@@ -38,6 +42,16 @@ interface TeamLite {
 
 function teamCode(team: TeamLite | null | undefined): string {
   return team?.code ?? "TBD";
+}
+
+function teamName(
+  team: TeamLite | null | undefined,
+  locale: string
+): string {
+  if (!team) return "TBD";
+  if (locale === "ko") return team.name_ko;
+  if (locale === "en") return team.name_en;
+  return team.name_es;
 }
 
 type CompletionState = "complete" | "partial" | "empty";
@@ -205,9 +219,10 @@ export default async function ScoreboardPage({ params }: Props) {
     .from("matches")
     .select(
       `id, kickoff_at, status,
-       home_team:home_team_id ( code ),
-       away_team:away_team_id ( code ),
-       rounds!inner ( lock_time )`
+       home_score, away_score, advancing_team_id, penalty_winner_team_id,
+       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+       away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
+       rounds!inner ( lock_time, stage )`
     )
     .order("kickoff_at", { ascending: true });
 
@@ -273,6 +288,89 @@ export default async function ScoreboardPage({ params }: Props) {
         )
       : browserGroups[browserGroups.length - 1]
     )?.id ?? "";
+
+  // ── What-if simulator data ───────────────────────────────────────────────────
+  // All locked matches (finished + upcoming) so players can simulate both
+  // hypothetical future results and counterfactual past ones.
+  // We reuse lockedMatchesForBrowser (already filtered by round lock_time).
+
+  const whatIfMatchIds = lockedMatchesForBrowser.map((m) => m.id);
+
+  // Fetch everyone's predictions for these matches (incl. penalty_winner_team_id
+  // for knockout scoring). Uses fetchAllRows to avoid the 1,000-row cap.
+  const { data: whatIfPreds } = whatIfMatchIds.length
+    ? await fetchAllRows<{
+        user_id: string;
+        match_id: string;
+        home_score_pred: number;
+        away_score_pred: number;
+        penalty_winner_team_id: string | null;
+      }>((from, to) =>
+        supabase
+          .from("predictions")
+          .select(
+            "user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id"
+          )
+          .in("match_id", whatIfMatchIds)
+          .order("id")
+          .range(from, to)
+      )
+    : { data: [] };
+
+  // predByKey: `${userId}:${matchId}` → prediction entry
+  const predByKey: Record<
+    string,
+    { home: number; away: number; penaltyWinnerId: string | null }
+  > = {};
+  for (const p of whatIfPreds ?? []) {
+    predByKey[`${p.user_id}:${p.match_id}`] = {
+      home: p.home_score_pred,
+      away: p.away_score_pred,
+      penaltyWinnerId: p.penalty_winner_team_id,
+    };
+  }
+
+  // realPtsByKey: finished-match points from the already-fetched `predictions` array
+  const realPtsByKey: Record<string, number> = {};
+  const finishedIdSet = new Set(finishedIds);
+  for (const p of predictions) {
+    if (finishedIdSet.has(p.matchId)) {
+      realPtsByKey[`${p.userId}:${p.matchId}`] = p.pointsAwarded ?? 0;
+    }
+  }
+
+  // Map locked matches to the WhatIfMatch shape
+  const whatIfMatches: WhatIfMatch[] = lockedMatchesForBrowser.map((m) => {
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    const stage: "group" | "knockout" =
+      round?.stage === "group" ? "group" : "knockout";
+    const isFinished = m.status === "finished";
+    return {
+      id: m.id,
+      stage,
+      status: m.status,
+      homeCode: home?.code ?? "TBD",
+      awayCode: away?.code ?? "TBD",
+      homeName: teamName(home as TeamLite | null, locale),
+      awayName: teamName(away as TeamLite | null, locale),
+      homeTeamId: (home as TeamLite | null)?.id ?? null,
+      awayTeamId: (away as TeamLite | null)?.id ?? null,
+      kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+      actual:
+        isFinished && m.home_score != null && m.away_score != null
+          ? {
+              home: m.home_score,
+              away: m.away_score,
+              advancingTeamId:
+                (m.advancing_team_id as string | null) ??
+                (m.penalty_winner_team_id as string | null) ??
+                null,
+            }
+          : null,
+    };
+  });
 
   // ── Next-match table-column preview ─────────────────────────────────────────
   // Take the soonest match(es) not yet finished — including in-play ones, so
@@ -380,6 +478,16 @@ export default async function ScoreboardPage({ params }: Props) {
         <MatchStatsBrowser
           groups={browserGroups}
           defaultGroupId={defaultGroupId}
+        />
+      )}
+
+      {whatIfMatches.length > 0 && (
+        <WhatIfPanel
+          baseline={rows}
+          matches={whatIfMatches}
+          predByKey={predByKey}
+          realPtsByKey={realPtsByKey}
+          currentUserId={user?.id ?? null}
         />
       )}
 
