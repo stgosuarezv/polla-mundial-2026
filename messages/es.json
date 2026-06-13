@@ -100,7 +100,8 @@
     "seeWhoPicked": "Ver quiénes lo predijeron",
     "downloadImage": "Descargar PNG",
     "toggleStatusColumns": "Columnas de estado",
-    "lastMatchLabel": "Último Partido"
+    "lastMatchLabel": "Último Partido",
+    "lastMatchFootnote": "* Si dos partidos se jugaron simultáneamente, los puntos se suman."
   },
   "admin": {
     "title": "Panel de administración",

@@ -481,6 +481,11 @@ export default async function ScoreboardPage({ params }: Props) {
             </tbody>
           </table>
         </div>
+        {lastMatchIds.size > 0 && (
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            {t("lastMatchFootnote")}
+          </p>
+        )}
         </StatusColumnsToggle>
       )}
     </div>
