@@ -6,6 +6,7 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import { routing } from "@/lib/i18n/routing";
+import { VersionReloadGuard } from "@/components/version-reload-guard";
 import "../globals.css";
 
 const notoSans = Noto_Sans({
@@ -46,6 +47,7 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} className={notoSans.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans antialiased">
+        <VersionReloadGuard />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <NextIntlClientProvider messages={messages}>
             {children}
