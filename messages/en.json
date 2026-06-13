@@ -99,7 +99,9 @@
     "avgPrediction": "Average",
     "seeWhoPicked": "See who picked it",
     "downloadImage": "Download PNG",
-    "toggleStatusColumns": "Status columns"
+    "toggleStatusColumns": "Status columns",
+    "lastMatchLabel": "Last Match",
+    "lastMatchFootnote": "* If two matches kicked off simultaneously, their points are summed."
   },
   "admin": {
     "title": "Admin Panel",
