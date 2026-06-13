@@ -99,7 +99,8 @@
     "avgPrediction": "Average",
     "seeWhoPicked": "See who picked it",
     "downloadImage": "Download PNG",
-    "toggleStatusColumns": "Status columns"
+    "toggleStatusColumns": "Status columns",
+    "lastMatchLabel": "Last Match"
   },
   "admin": {
     "title": "Admin Panel",

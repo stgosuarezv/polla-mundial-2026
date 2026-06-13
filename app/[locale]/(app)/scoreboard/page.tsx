@@ -114,7 +114,7 @@ export default async function ScoreboardPage({ params }: Props) {
   // Finished matches with stage (group/knockout) for perfect-match hit detection
   const { data: finishedMatches } = await supabase
     .from("matches")
-    .select("id, rounds(stage)")
+    .select("id, kickoff_at, rounds(stage)")
     .eq("status", "finished");
 
   const finishedWithStage = (finishedMatches ?? []).flatMap((m) => {
@@ -154,6 +154,27 @@ export default async function ScoreboardPage({ params }: Props) {
   }));
 
   const rows = computeLeaderboard(users, finishedWithStage, predictions);
+
+  // Points from the most recently played match(es). Multiple matches can share
+  // the same kickoff_at (common in group stage), so we sum all of them.
+  const lastKickoffAt = (finishedMatches ?? []).reduce<string>(
+    (max, m) => (m.kickoff_at > max ? m.kickoff_at : max),
+    ""
+  );
+  const lastMatchIds = new Set(
+    (finishedMatches ?? [])
+      .filter((m) => m.kickoff_at === lastKickoffAt)
+      .map((m) => m.id)
+  );
+  const lastMatchPtsMap = new Map<string, number>();
+  for (const p of predictions) {
+    if (lastMatchIds.has(p.matchId)) {
+      lastMatchPtsMap.set(
+        p.userId,
+        (lastMatchPtsMap.get(p.userId) ?? 0) + (p.pointsAwarded ?? 0)
+      );
+    }
+  }
 
   // ── Prediction completion per player ────────────────────────────────────────
   // SECURITY DEFINER fn returns counts only (no pick content) so it can see
@@ -315,18 +336,24 @@ export default async function ScoreboardPage({ params }: Props) {
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("points")}
                 </th>
-                <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground sm:table-cell">
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("hits")}
                 </th>
-                <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground sm:table-cell">
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("zeros")}
                 </th>
-                <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground md:table-cell">
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("gap")}
                 </th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                   {t("prize")}
                 </th>
+                {lastMatchIds.size > 0 && (
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground leading-tight">
+                    <div>Pts</div>
+                    <div>{t("lastMatchLabel")}</div>
+                  </th>
+                )}
                 {nextMatches.map((m) => (
                   <th
                     key={m.id}
@@ -387,13 +414,13 @@ export default async function ScoreboardPage({ params }: Props) {
                     <td className="px-3 py-2.5 text-right font-bold text-primary">
                       {row.totalPoints}
                     </td>
-                    <td className="hidden px-3 py-2.5 text-right text-muted-foreground sm:table-cell">
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">
                       {row.matchesHit}
                     </td>
-                    <td className="hidden px-3 py-2.5 text-right text-muted-foreground sm:table-cell">
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">
                       {row.zeroMatches}
                     </td>
-                    <td className="hidden px-3 py-2.5 text-right text-muted-foreground md:table-cell">
+                    <td className="px-3 py-2.5 text-right text-muted-foreground">
                       {row.deltaFromLeader < 0
                         ? `${row.deltaFromLeader}`
                         : "—"}
@@ -408,6 +435,13 @@ export default async function ScoreboardPage({ params }: Props) {
                     >
                       {prize}
                     </td>
+                    {lastMatchIds.size > 0 && (
+                      <td className="px-3 py-2.5 text-right text-muted-foreground">
+                        {lastMatchPtsMap.has(row.userId)
+                          ? lastMatchPtsMap.get(row.userId)
+                          : "—"}
+                      </td>
+                    )}
                     {nextMatches.map((m) => {
                       const pred = m.roundClosed
                         ? nextPredByKey.get(`${row.userId}:${m.id}`)

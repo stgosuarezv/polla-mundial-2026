@@ -99,7 +99,8 @@
     "avgPrediction": "Promedio",
     "seeWhoPicked": "Ver quiénes lo predijeron",
     "downloadImage": "Descargar PNG",
-    "toggleStatusColumns": "Columnas de estado"
+    "toggleStatusColumns": "Columnas de estado",
+    "lastMatchLabel": "Último Partido"
   },
   "admin": {
     "title": "Panel de administración",

@@ -99,7 +99,8 @@
     "avgPrediction": "평균",
     "seeWhoPicked": "선택한 플레이어 보기",
     "downloadImage": "PNG 다운로드",
-    "toggleStatusColumns": "상태 열"
+    "toggleStatusColumns": "상태 열",
+    "lastMatchLabel": "최근 경기"
   },
   "admin": {
     "title": "관리자 패널",
