@@ -107,7 +107,6 @@
     "selectMatch": "Seleccionar partido",
     "whatIfTitle": "¿Qué pasaría si?",
     "whatIfDescription": "Ingresa resultados hipotéticos (de próximos partidos o cambiando los ya jugados) para ver cómo se movería la tabla. Solo tú ves esto.",
-    "whatIfProjected": "Tabla proyectada",
     "whatIfClear": "Borrar simulación"
   },
   "admin": {

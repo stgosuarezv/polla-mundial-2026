@@ -107,7 +107,6 @@
     "selectMatch": "Select match",
     "whatIfTitle": "What if?",
     "whatIfDescription": "Enter hypothetical results — for upcoming matches or by changing finished ones — to see how the standings would move. Only you see this.",
-    "whatIfProjected": "Projected standings",
     "whatIfClear": "Clear simulation"
   },
   "admin": {
