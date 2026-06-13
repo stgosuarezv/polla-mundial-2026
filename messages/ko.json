@@ -104,7 +104,10 @@
     "lastMatchLabel": "최근 경기",
     "lastMatchFootnote": "* 두 경기가 동시에 시작된 경우 점수를 합산합니다.",
     "matchStatsTitle": "예측 통계",
-    "selectMatch": "경기 선택"
+    "selectMatch": "경기 선택",
+    "whatIfTitle": "가정해보기",
+    "whatIfDescription": "가상의 결과를 입력해보세요 — 앞으로의 경기나 이미 끝난 경기를 바꿔서 순위가 어떻게 변하는지 확인할 수 있습니다. 본인만 볼 수 있습니다.",
+    "whatIfClear": "초기화"
   },
   "admin": {
     "title": "관리자 패널",

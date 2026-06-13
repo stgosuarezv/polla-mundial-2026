@@ -9,10 +9,11 @@ import {
   type MatchStatsGroup,
 } from "@/components/scoreboard/match-stats-browser";
 import type { MatchStatsItem } from "@/components/scoreboard/match-stats-card";
+import { ScoreboardTable } from "@/components/scoreboard/scoreboard-table";
+import type { NextMatchCol } from "@/components/scoreboard/scoreboard-table";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
-import { StatusColumnsToggle } from "@/components/scoreboard/status-columns-toggle";
-import { cn } from "@/lib/utils";
+import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
 
 const PRIZES_CLP = [
   1_250_000, 500_000, 250_000, 150_000, 125_000, 100_000, 75_000, 50_000,
@@ -40,46 +41,14 @@ function teamCode(team: TeamLite | null | undefined): string {
   return team?.code ?? "TBD";
 }
 
-type CompletionState = "complete" | "partial" | "empty";
-
-function statusOf(made: number, total: number): CompletionState {
-  if (total === 0) return "empty";
-  if (made === 0) return "empty";
-  if (made >= total) return "complete";
-  return "partial";
-}
-
-interface StatusBadgeProps {
-  state: CompletionState;
-  label: string;
-}
-
-const STATUS_KEY: Record<CompletionState, "statusComplete" | "statusPartial" | "statusEmpty"> = {
-  complete: "statusComplete",
-  partial: "statusPartial",
-  empty: "statusEmpty",
-};
-
-function StatusBadge({ state, label }: StatusBadgeProps) {
-  if (state === "complete") {
-    return (
-      <span className="text-xs font-medium" style={{ color: "#16a34a" }}>
-        {label}
-      </span>
-    );
-  }
-  if (state === "partial") {
-    return (
-      <span className="text-xs font-medium" style={{ color: "#d97706" }}>
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span className="text-xs text-muted-foreground">
-      {label}
-    </span>
-  );
+function teamName(
+  team: TeamLite | null | undefined,
+  locale: string
+): string {
+  if (!team) return "TBD";
+  if (locale === "ko") return team.name_ko;
+  if (locale === "en") return team.name_en;
+  return team.name_es;
 }
 
 function formatKickoffCL(iso: string, locale: string): string {
@@ -149,7 +118,7 @@ export default async function ScoreboardPage({ params }: Props) {
     displayName: p.display_name,
   }));
 
-  // nameByUserId used by loadMatchSummaries and table rendering
+  // nameByUserId used by loadMatchSummaries
   const nameByUserId = new Map(users.map((u) => [u.id, u.displayName]));
 
   const predictions = (preds ?? []).map((p) => ({
@@ -185,12 +154,12 @@ export default async function ScoreboardPage({ params }: Props) {
   // SECURITY DEFINER fn returns counts only (no pick content) so it can see
   // other players' unlocked-round predictions without leaking the actual picks.
   const { data: completionData } = await supabase.rpc("prediction_completion");
-  const completionByUser = new Map<
+  const completionByUserMap = new Map<
     string,
     { made: number; total: number; podioSlots: number }
   >();
   for (const c of completionData ?? []) {
-    completionByUser.set(c.user_id, {
+    completionByUserMap.set(c.user_id, {
       made: Number(c.made),
       total: Number(c.total),
       podioSlots: c.podio_slots,
@@ -205,9 +174,10 @@ export default async function ScoreboardPage({ params }: Props) {
     .from("matches")
     .select(
       `id, kickoff_at, status,
-       home_team:home_team_id ( code ),
-       away_team:away_team_id ( code ),
-       rounds!inner ( lock_time )`
+       home_score, away_score, advancing_team_id, penalty_winner_team_id,
+       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+       away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
+       rounds!inner ( lock_time, stage )`
     )
     .order("kickoff_at", { ascending: true });
 
@@ -265,14 +235,98 @@ export default async function ScoreboardPage({ params }: Props) {
 
   // Default: soonest group that has an unfinished match (round locked but match
   // not yet played), else the latest group (most recently finished).
-  const firstActiveRaw = [...browserGroupMap.values()].find((g) => g.hasUnfinished);
+  const firstActiveRaw = [...browserGroupMap.values()].find(
+    (g) => g.hasUnfinished
+  );
   const defaultGroupId =
     (firstActiveRaw
       ? browserGroups.find((bg) =>
-          bg.items.some((i) => firstActiveRaw.items.some((ri) => ri.id === i.id))
+          bg.items.some((i) =>
+            firstActiveRaw.items.some((ri) => ri.id === i.id)
+          )
         )
       : browserGroups[browserGroups.length - 1]
     )?.id ?? "";
+
+  // ── What-if simulator data ───────────────────────────────────────────────────
+  // All locked matches (finished + upcoming) so players can simulate both
+  // hypothetical future results and counterfactual past ones.
+  // We reuse lockedMatchesForBrowser (already filtered by round lock_time).
+
+  const whatIfMatchIds = lockedMatchesForBrowser.map((m) => m.id);
+
+  // Fetch everyone's predictions for these matches (incl. penalty_winner_team_id
+  // for knockout scoring). Uses fetchAllRows to avoid the 1,000-row cap.
+  const { data: whatIfPreds } = whatIfMatchIds.length
+    ? await fetchAllRows<{
+        user_id: string;
+        match_id: string;
+        home_score_pred: number;
+        away_score_pred: number;
+        penalty_winner_team_id: string | null;
+      }>((from, to) =>
+        supabase
+          .from("predictions")
+          .select(
+            "user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id"
+          )
+          .in("match_id", whatIfMatchIds)
+          .order("id")
+          .range(from, to)
+      )
+    : { data: [] };
+
+  // predByKey: `${userId}:${matchId}` → prediction entry (plain Record for client)
+  const predByKey: Record<string, WhatIfPredEntry> = {};
+  for (const p of whatIfPreds ?? []) {
+    predByKey[`${p.user_id}:${p.match_id}`] = {
+      home: p.home_score_pred,
+      away: p.away_score_pred,
+      penaltyWinnerId: p.penalty_winner_team_id,
+    };
+  }
+
+  // realPtsByKey: finished-match points from the already-fetched `predictions` array
+  const realPtsByKey: Record<string, number> = {};
+  const finishedIdSet = new Set(finishedIds);
+  for (const p of predictions) {
+    if (finishedIdSet.has(p.matchId)) {
+      realPtsByKey[`${p.userId}:${p.matchId}`] = p.pointsAwarded ?? 0;
+    }
+  }
+
+  // Map locked matches to the WhatIfMatch shape (types from lib/scoring/what-if)
+  const whatIfMatches: WhatIfMatch[] = lockedMatchesForBrowser.map((m) => {
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    const stage: "group" | "knockout" =
+      round?.stage === "group" ? "group" : "knockout";
+    const isFinished = m.status === "finished";
+    return {
+      id: m.id,
+      stage,
+      status: m.status,
+      homeCode: home?.code ?? "TBD",
+      awayCode: away?.code ?? "TBD",
+      homeName: teamName(home as TeamLite | null, locale),
+      awayName: teamName(away as TeamLite | null, locale),
+      homeTeamId: (home as TeamLite | null)?.id ?? null,
+      awayTeamId: (away as TeamLite | null)?.id ?? null,
+      kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+      actual:
+        isFinished && m.home_score != null && m.away_score != null
+          ? {
+              home: m.home_score,
+              away: m.away_score,
+              advancingTeamId:
+                (m.advancing_team_id as string | null) ??
+                (m.penalty_winner_team_id as string | null) ??
+                null,
+            }
+          : null,
+    };
+  });
 
   // ── Next-match table-column preview ─────────────────────────────────────────
   // Take the soonest match(es) not yet finished — including in-play ones, so
@@ -292,7 +346,7 @@ export default async function ScoreboardPage({ params }: Props) {
     .limit(4);
 
   const earliestKickoff = upcoming?.[0]?.kickoff_at;
-  const nextMatches = (upcoming ?? [])
+  const nextMatchesRaw = (upcoming ?? [])
     .filter((m) => m.kickoff_at === earliestKickoff)
     .map((m) => {
       const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
@@ -308,7 +362,7 @@ export default async function ScoreboardPage({ params }: Props) {
     });
 
   // Predictions only for matches whose round has already locked.
-  const closedNextIds = nextMatches
+  const closedNextIds = nextMatchesRaw
     .filter((m) => m.roundClosed)
     .map((m) => m.id);
   const { data: nextPreds } = closedNextIds.length
@@ -317,37 +371,40 @@ export default async function ScoreboardPage({ params }: Props) {
         .select("user_id, match_id, home_score_pred, away_score_pred")
         .in("match_id", closedNextIds)
     : { data: [] };
-  const nextPredByKey = new Map<
-    string,
-    { home_score_pred: number; away_score_pred: number }
-  >();
+
+  // Serialize as plain Records for the client component (no Maps across boundary)
+  const nextPredByKey: Record<string, { home: number; away: number }> = {};
   for (const p of nextPreds ?? []) {
-    nextPredByKey.set(`${p.user_id}:${p.match_id}`, {
-      home_score_pred: p.home_score_pred,
-      away_score_pred: p.away_score_pred,
-    });
+    nextPredByKey[`${p.user_id}:${p.match_id}`] = {
+      home: p.home_score_pred,
+      away: p.away_score_pred,
+    };
   }
 
-  // Tied ranks split the combined pot for the positions they occupy.
-  // E.g. three players tied at rank 1 share prizes for positions 1, 2 and 3.
-  const prizeByRank = new Map<number, number>();
-  for (let i = 0; i < rows.length; ) {
-    const rank = rows[i]!.rank;
-    let j = i;
-    while (j < rows.length && rows[j]!.rank === rank) j++;
-    const groupSize = j - i;
-    let pot = 0;
-    for (let k = 0; k < groupSize; k++) {
-      pot += PRIZES_CLP[rank - 1 + k] ?? 0;
-    }
-    if (pot > 0) prizeByRank.set(rank, Math.round(pot / groupSize));
-    i = j;
-  }
+  const nextMatches: NextMatchCol[] = nextMatchesRaw.map((m) => ({
+    id: m.id,
+    homeCode: teamCode(m.home),
+    awayCode: teamCode(m.away),
+    kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+    roundClosed: m.roundClosed,
+  }));
+
+  // Serialize completionByUser Map → plain Record for client component
+  const completionByUser: Record<
+    string,
+    { made: number; total: number; podioSlots: number }
+  > = Object.fromEntries(completionByUserMap);
+
+  // Serialize lastMatchPts Map → plain Record for client component
+  const lastMatchPts: Record<string, number> = Object.fromEntries(lastMatchPtsMap);
+  const showLastMatch = lastMatchIds.size > 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">{t("title")}</h1>
+        <h1 className="text-2xl font-bold text-[#1A2855] dark:text-foreground">
+          {t("title")}
+        </h1>
         <div className="flex items-center gap-2">
           <DownloadImageButton
             targetId="scoreboard-table"
@@ -386,171 +443,20 @@ export default async function ScoreboardPage({ params }: Props) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
-        <StatusColumnsToggle label={t("toggleStatusColumns")}>
-        <div id="scoreboard-table" className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead style={{ backgroundColor: "rgba(26, 40, 85, 0.07)" }}>
-              <tr>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                  {t("rank")}
-                </th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                  {t("player")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("points")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("hits")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("zeros")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("gap")}
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                  {t("prize")}
-                </th>
-                {lastMatchIds.size > 0 && (
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground leading-tight">
-                    <div>Pts</div>
-                    <div>{t("lastMatchLabel")}</div>
-                  </th>
-                )}
-                {nextMatches.map((m) => (
-                  <th
-                    key={m.id}
-                    className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
-                  >
-                    <div className="text-xs">
-                      {teamCode(m.home)}–{teamCode(m.away)}
-                    </div>
-                    <div className="text-[10px] font-normal text-muted-foreground/70">
-                      {formatKickoffCL(m.kickoff_at, locale)}
-                    </div>
-                  </th>
-                ))}
-                <th
-                  data-status-col=""
-                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
-                >
-                  {t("completion")}
-                </th>
-                <th
-                  data-status-col=""
-                  className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
-                >
-                  {t("podio")}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((row) => {
-                const isMe = row.userId === user?.id;
-                const prizeAmount = prizeByRank.get(row.rank);
-                const prize =
-                  prizeAmount !== undefined ? formatCLP(locale, prizeAmount) : "—";
-                return (
-                  <tr
-                    key={row.userId}
-                    className={cn(
-                      "transition-colors hover:bg-muted/30",
-                      isMe && "bg-highlight/10 font-semibold"
-                    )}
-                  >
-                    <td className="px-3 py-2.5 text-muted-foreground">
-                      {row.rank === 1 ? "🥇" : row.rank === 2 ? "🥈" : row.rank === 3 ? "🥉" : row.rank}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <Link
-                        href={`/${locale}/profile/${row.userId}`}
-                        className="hover:underline"
-                      >
-                        {row.displayName}
-                      </Link>
-                      {isMe && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">
-                          {t("you")}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-bold text-primary">
-                      {row.totalPoints}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-muted-foreground">
-                      {row.matchesHit}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-muted-foreground">
-                      {row.zeroMatches}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-muted-foreground">
-                      {row.deltaFromLeader < 0
-                        ? `${row.deltaFromLeader}`
-                        : "—"}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2.5 text-right whitespace-nowrap",
-                        prizeAmount !== undefined
-                          ? "font-medium text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      {prize}
-                    </td>
-                    {lastMatchIds.size > 0 && (
-                      <td className="px-3 py-2.5 text-right text-muted-foreground">
-                        {lastMatchPtsMap.has(row.userId)
-                          ? lastMatchPtsMap.get(row.userId)
-                          : "—"}
-                      </td>
-                    )}
-                    {nextMatches.map((m) => {
-                      const pred = m.roundClosed
-                        ? nextPredByKey.get(`${row.userId}:${m.id}`)
-                        : undefined;
-                      return (
-                        <td
-                          key={m.id}
-                          className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
-                        >
-                          {pred
-                            ? `${pred.home_score_pred}–${pred.away_score_pred}`
-                            : "—"}
-                        </td>
-                      );
-                    })}
-                    <td data-status-col="" className="px-3 py-2.5 text-center">
-                      {(() => {
-                        const c = completionByUser.get(row.userId);
-                        if (!c || c.total === 0) return <span className="text-xs text-muted-foreground">—</span>;
-                        const state = statusOf(c.made, c.total);
-                        const label = t(STATUS_KEY[state]);
-                        return <StatusBadge state={state} label={label} />;
-                      })()}
-                    </td>
-                    <td data-status-col="" className="px-3 py-2.5 text-center">
-                      {(() => {
-                        const c = completionByUser.get(row.userId);
-                        const slots = c?.podioSlots ?? 0;
-                        const state = statusOf(slots, 3);
-                        const label = t(STATUS_KEY[state]);
-                        return <StatusBadge state={state} label={label} />;
-                      })()}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {lastMatchIds.size > 0 && (
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            {t("lastMatchFootnote")}
-          </p>
-        )}
-        </StatusColumnsToggle>
+        <ScoreboardTable
+          rows={rows}
+          currentUserId={user?.id ?? null}
+          locale={locale}
+          prizes={PRIZES_CLP}
+          lastMatchPts={lastMatchPts}
+          showLastMatch={showLastMatch}
+          nextMatches={nextMatches}
+          nextPredByKey={nextPredByKey}
+          completionByUser={completionByUser}
+          whatIfMatches={whatIfMatches}
+          predByKey={predByKey}
+          realPtsByKey={realPtsByKey}
+        />
       )}
     </div>
   );

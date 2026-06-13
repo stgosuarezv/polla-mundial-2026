@@ -182,6 +182,62 @@ export function scorePodio(
 }
 
 /**
+ * Input for the pure ranking helper. Each entry holds one player's aggregated
+ * stats; `rankEntries` sorts and assigns ranks without touching any DB data.
+ */
+export interface RankableEntry {
+  userId: string;
+  displayName: string;
+  total: number;
+  hit: number;
+  zero: number;
+}
+
+/**
+ * Pure ranking function. Sorts entries by the standard leaderboard rules
+ * (total desc → hits desc → zeros asc), assigns shared ranks for ties, and
+ * computes `deltaFromLeader`. Used by both `computeLeaderboard` and the
+ * client-side What-if projection.
+ */
+export function rankEntries(entries: RankableEntry[]): LeaderboardRow[] {
+  const sorted = entries.slice().sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    if (b.hit !== a.hit) return b.hit - a.hit;
+    return a.zero - b.zero;
+  });
+
+  const leaderPoints = sorted.length > 0 ? sorted[0]!.total : 0;
+
+  const rows: LeaderboardRow[] = [];
+  let currentRank = 1;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = sorted[i]!;
+
+    if (i > 0) {
+      const prev = sorted[i - 1]!;
+      const tied =
+        entry.total === prev.total &&
+        entry.hit === prev.hit &&
+        entry.zero === prev.zero;
+      if (!tied) currentRank = i + 1;
+    }
+
+    rows.push({
+      rank: currentRank,
+      userId: entry.userId,
+      displayName: entry.displayName,
+      totalPoints: entry.total,
+      matchesHit: entry.hit,
+      zeroMatches: entry.zero,
+      deltaFromLeader: entry.total - leaderPoints,
+    });
+  }
+
+  return rows;
+}
+
+/**
  * Builds a ranked leaderboard from scored predictions.
  *
  * Ranking: total points (desc) → matches hit (desc) → zero matches (asc).
@@ -215,10 +271,7 @@ export function computeLeaderboard(
     }
   }
 
-  type UserAgg = { total: number; hit: number; zero: number };
-  const agg = new Map<string, UserAgg>();
-
-  for (const user of users) {
+  const entries: RankableEntry[] = users.map((user) => {
     let total = 0;
     let hit = 0;
     let zero = 0;
@@ -229,49 +282,8 @@ export function computeLeaderboard(
       if (pts === max) hit++;
       else if (pts === 0) zero++;
     }
-    agg.set(user.id, { total, hit, zero });
-  }
-
-  const sorted = users.slice().sort((a, b) => {
-    const sa = agg.get(a.id) ?? { total: 0, hit: 0, zero: 0 };
-    const sb = agg.get(b.id) ?? { total: 0, hit: 0, zero: 0 };
-    if (sb.total !== sa.total) return sb.total - sa.total;
-    if (sb.hit !== sa.hit) return sb.hit - sa.hit;
-    return sa.zero - sb.zero;
+    return { userId: user.id, displayName: user.displayName, total, hit, zero };
   });
 
-  const leaderPoints =
-    sorted.length > 0
-      ? (agg.get(sorted[0]!.id) ?? { total: 0 }).total
-      : 0;
-
-  const rows: LeaderboardRow[] = [];
-  let currentRank = 1;
-
-  for (let i = 0; i < sorted.length; i++) {
-    const user = sorted[i]!;
-    const entry = agg.get(user.id) ?? { total: 0, hit: 0, zero: 0 };
-
-    if (i > 0) {
-      const prev = sorted[i - 1]!;
-      const prevEntry = agg.get(prev.id) ?? { total: 0, hit: 0, zero: 0 };
-      const tied =
-        entry.total === prevEntry.total &&
-        entry.hit === prevEntry.hit &&
-        entry.zero === prevEntry.zero;
-      if (!tied) currentRank = i + 1;
-    }
-
-    rows.push({
-      rank: currentRank,
-      userId: user.id,
-      displayName: user.displayName,
-      totalPoints: entry.total,
-      matchesHit: entry.hit,
-      zeroMatches: entry.zero,
-      deltaFromLeader: entry.total - leaderPoints,
-    });
-  }
-
-  return rows;
+  return rankEntries(entries);
 }
