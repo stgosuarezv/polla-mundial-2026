@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { savePrediction } from "@/lib/actions/predictions";
 import { usePredictionsForm } from "@/components/predictions/predictions-form";
+import { MatchStatsDialog } from "@/components/predictions/match-stats-dialog";
 import { cn } from "@/lib/utils";
+import type { MatchPredictionSummary } from "@/lib/scoring/prediction-summary";
 
 interface Team {
   id: string;
@@ -36,6 +38,7 @@ interface MatchCardProps {
   isKnockout: boolean;
   isLocked: boolean;
   prediction: ExistingPrediction | null;
+  summary?: MatchPredictionSummary | null;
   t: {
     noTeam: string;
     save: string;
@@ -70,6 +73,7 @@ export function MatchCard({
   isKnockout,
   isLocked,
   prediction,
+  summary,
   t,
 }: MatchCardProps) {
   const [homeInput, setHomeInput] = useState(
@@ -336,6 +340,17 @@ export function MatchCard({
               {t.noPrediction}
             </span>
           )}
+        </div>
+      )}
+
+      {/* Stats button (locked rounds with available predictions) */}
+      {isLocked && summary && summary.total > 0 && (
+        <div className="mt-2 flex justify-center">
+          <MatchStatsDialog
+            homeCode={homeTeam?.code ?? ""}
+            awayCode={awayTeam?.code ?? ""}
+            summary={summary}
+          />
         </div>
       )}
 

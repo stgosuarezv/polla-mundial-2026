@@ -70,7 +70,8 @@
     "noPrediction": "No prediction",
     "pointsBreakdown": "Points breakdown",
     "allPredictions": "All predictions",
-    "saveAll": "Save all"
+    "saveAll": "Save all",
+    "stats": "Stats"
   },
   "scoreboard": {
     "title": "Scoreboard",
@@ -101,7 +102,9 @@
     "downloadImage": "Download PNG",
     "toggleStatusColumns": "Status columns",
     "lastMatchLabel": "Last Match",
-    "lastMatchFootnote": "* If two matches kicked off simultaneously, their points are summed."
+    "lastMatchFootnote": "* If two matches kicked off simultaneously, their points are summed.",
+    "matchStatsTitle": "Prediction stats",
+    "selectMatch": "Select match"
   },
   "admin": {
     "title": "Admin Panel",

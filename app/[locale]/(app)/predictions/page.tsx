@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
 import { MatchCard } from "@/components/predictions/match-card";
 import { PredictionsForm } from "@/components/predictions/predictions-form";
 import { Countdown } from "@/components/countdown";
@@ -64,6 +65,29 @@ export default async function PredictionsPage({ params }: Props) {
 
   const predByMatchId = new Map(
     (predictions ?? []).map((p) => [p.match_id, p])
+  );
+
+  // ── Prediction stats for locked matches ─────────────────────────────────────
+  // Collect all match ids from locked rounds — RLS allows viewing other players'
+  // predictions for these. Used to show a "Stats" button on locked match cards.
+  const lockedMatchIds = (rounds ?? []).flatMap((r) =>
+    r.lock_time <= now
+      ? (r.matches ?? []).map((m: { id: string }) => m.id)
+      : []
+  );
+
+  // Fetch all profiles for display names (needed by loadMatchSummaries)
+  const { data: allProfiles } = await supabase
+    .from("profiles")
+    .select("id, display_name");
+  const nameByUserId = new Map(
+    (allProfiles ?? []).map((p) => [p.id, p.display_name as string])
+  );
+
+  const summaryByMatchId = await loadMatchSummaries(
+    supabase,
+    lockedMatchIds,
+    nameByUserId
   );
 
   // Find the next round to lock (countdown target)
@@ -162,6 +186,7 @@ export default async function PredictionsPage({ params }: Props) {
                       isKnockout={round.stage === "knockout"}
                       isLocked={isLocked}
                       prediction={predByMatchId.get(match.id) ?? null}
+                      summary={summaryByMatchId.get(match.id) ?? null}
                       t={tCard}
                     />
                   );
