@@ -57,8 +57,9 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
           {group.home}–{group.away} · ×{group.count}
         </p>
         <ul
-          className="max-h-96 overflow-y-auto text-sm"
+          className="mt-1 max-h-[50vh] overflow-y-auto text-sm"
           onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
         >
           {group.players.map((name) => (
             <li key={name} className="py-0.5">
