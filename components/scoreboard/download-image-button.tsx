@@ -39,6 +39,8 @@ export function DownloadImageButton({
       );
       const blob = await domToBlob(el as HTMLElement, {
         scale,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
         backgroundColor: getComputedStyle(document.body).backgroundColor,
       });
       if (!blob) return;

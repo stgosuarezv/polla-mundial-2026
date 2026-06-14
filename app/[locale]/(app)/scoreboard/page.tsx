@@ -434,10 +434,12 @@ export default async function ScoreboardPage({ params }: Props) {
       </p>
 
       {browserGroups.length > 0 && (
-        <MatchStatsBrowser
-          groups={browserGroups}
-          defaultGroupId={defaultGroupId}
-        />
+        <div className="print:hidden">
+          <MatchStatsBrowser
+            groups={browserGroups}
+            defaultGroupId={defaultGroupId}
+          />
+        </div>
       )}
 
       {rows.length === 0 ? (

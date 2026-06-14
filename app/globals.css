@@ -89,3 +89,21 @@ body {
 .hide-status-cols [data-status-col] {
   display: none;
 }
+
+/* ── Print / PDF ──────────────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 1.2cm;
+  }
+
+  /* Remove horizontal-scroll clipping so every column renders */
+  #scoreboard-table {
+    overflow: visible !important;
+  }
+
+  /* Tighten font so wide tables fit landscape A4 */
+  #scoreboard-table table {
+    font-size: 11px;
+  }
+}

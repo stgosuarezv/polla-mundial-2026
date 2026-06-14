@@ -220,7 +220,7 @@ export function ScoreboardTable({
 
       {/* Mobile: collapsible inputs panel (only when simulating, hidden on lg+) */}
       {simulating && hasWhatIf && (
-        <div className="lg:hidden rounded-lg border p-3 space-y-2">
+        <div className="lg:hidden print:hidden rounded-lg border p-3 space-y-2">
           <button
             type="button"
             onClick={() => setMobileInputsOpen((o) => !o)}
@@ -254,7 +254,7 @@ export function ScoreboardTable({
       >
         {/* Desktop side panel */}
         {simulating && hasWhatIf && (
-          <div className="hidden lg:block lg:w-80 lg:shrink-0 lg:sticky lg:top-4 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-lg border p-4">
+          <div className="hidden lg:block print:hidden lg:w-80 lg:shrink-0 lg:sticky lg:top-4 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-lg border p-4">
             <WhatIfInputs
               matches={whatIfMatches}
               inputs={inputs}
