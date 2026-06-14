@@ -260,7 +260,18 @@
     "currentRoundBadge": "Current Round",
     "upcomingBadge": "Upcoming",
     "currentRoundNote": "This round is currently open for predictions.",
-    "upcomingNote": "Predictions for this round are not yet open."
+    "upcomingNote": "Predictions for this round are not yet open.",
+    "editName": "Edit username",
+    "nameLabel": "Username",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "insertEmoji": "Insert emoji",
+    "oneTimeWarning": "You can only change your username once. This change is permanent and cannot be undone.",
+    "confirmChangeTitle": "Confirm username change?",
+    "confirmChange": "This is your one allowed username change. Once saved, you won't be able to change it again.",
+    "alreadyChanged": "You've already used your one username change.",
+    "saveError": "Could not save username. Please try again."
   },
   "podio": {
     "title": "Bonus Podium",

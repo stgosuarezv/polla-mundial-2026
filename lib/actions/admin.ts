@@ -116,9 +116,14 @@ export async function updateUserDisplayName(
   if (!parsed.success) return { ok: false, error: parsed.error.message };
 
   const { userId, displayName } = parsed.data;
-  const admin = createAdminClient();
 
-  const { error } = await admin
+  // Use the session client (not createAdminClient) so auth.uid() is set to
+  // the admin's own id. The DB trigger uses auth.uid() to attribute audit rows
+  // and to identify admin-path updates (via is_admin()). The "profiles: admins
+  // full access" RLS policy allows this session client to update any profile row.
+  const supabase = await createClient();
+
+  const { error } = await supabase
     .from("profiles")
     .update({ display_name: displayName })
     .eq("id", userId);

@@ -260,7 +260,18 @@
     "currentRoundBadge": "Ronda actual",
     "upcomingBadge": "Próxima",
     "currentRoundNote": "Esta ronda está abierta para predicciones.",
-    "upcomingNote": "Las predicciones para esta ronda aún no están disponibles."
+    "upcomingNote": "Las predicciones para esta ronda aún no están disponibles.",
+    "editName": "Editar nombre de usuario",
+    "nameLabel": "Nombre de usuario",
+    "save": "Guardar",
+    "saving": "Guardando…",
+    "cancel": "Cancelar",
+    "insertEmoji": "Insertar emoji",
+    "oneTimeWarning": "Solo puedes cambiar tu nombre una vez. Este cambio es permanente y no se puede deshacer.",
+    "confirmChangeTitle": "¿Confirmar cambio de nombre?",
+    "confirmChange": "Este es tu único cambio de nombre permitido. Una vez guardado, no podrás cambiarlo nuevamente.",
+    "alreadyChanged": "Ya usaste tu cambio de nombre. Solo se permite uno.",
+    "saveError": "No se pudo guardar el nombre. Inténtalo de nuevo."
   },
   "podio": {
     "title": "Bonus Podio",
