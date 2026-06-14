@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,21 @@ export function MatchStatsBrowser({
 }: MatchStatsBrowserProps) {
   const t = useTranslations("scoreboard");
   const [selectedId, setSelectedId] = useState(defaultGroupId);
+  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // When the dropdown opens, scroll the selected item into view so past matches
+  // are above and future matches are below — not buried at the top of the list.
+  useEffect(() => {
+    if (!open) return;
+    const raf = requestAnimationFrame(() => {
+      const checked = listRef.current?.querySelector(
+        '[data-state="checked"]'
+      ) as HTMLElement | null;
+      checked?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
 
   if (groups.length === 0) return null;
 
@@ -53,7 +68,7 @@ export function MatchStatsBrowser({
       {/* Centered dropdown — always rendered, even with one group, so the title
           always has a visual anchor and future matches slot in automatically. */}
       <div className="flex justify-center">
-        <DropdownMenu>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5">
               {selected.label}
@@ -64,16 +79,18 @@ export function MatchStatsBrowser({
             align="center"
             className="max-h-72 overflow-y-auto"
           >
-            <DropdownMenuRadioGroup
-              value={selectedId}
-              onValueChange={setSelectedId}
-            >
-              {groups.map((g) => (
-                <DropdownMenuRadioItem key={g.id} value={g.id}>
-                  {g.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
+            <div ref={listRef}>
+              <DropdownMenuRadioGroup
+                value={selectedId}
+                onValueChange={setSelectedId}
+              >
+                {groups.map((g) => (
+                  <DropdownMenuRadioItem key={g.id} value={g.id}>
+                    {g.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
