@@ -137,7 +137,7 @@ export function ScoreboardTable({
   // ── State ──────────────────────────────────────────────────────────────────
 
   const [simulating, setSimulating] = useState(false);
-  const [showStatusCols, setShowStatusCols] = useState(true);
+  const [showStatusCols, setShowStatusCols] = useState(false);
   const [mobileInputsOpen, setMobileInputsOpen] = useState(false);
 
   const defaultInputs = useMemo(

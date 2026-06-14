@@ -68,7 +68,7 @@ export function WhatIfInputs({
               </p>
 
               {/* Score inputs row */}
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-nowrap">
                 <span className="text-sm font-medium w-14 text-right leading-none">
                   {m.homeCode}
                 </span>

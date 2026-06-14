@@ -105,7 +105,7 @@
     "lastMatchFootnote": "* Si dos partidos se jugaron simultáneamente, los puntos se suman.",
     "matchStatsTitle": "Estadísticas de predicciones",
     "selectMatch": "Seleccionar partido",
-    "whatIfTitle": "¿Qué pasaría si?",
+    "whatIfTitle": "Simular Resultados",
     "whatIfDescription": "Ingresa resultados hipotéticos (de próximos partidos o cambiando los ya jugados) para ver cómo se movería la tabla. Solo tú ves esto.",
     "whatIfClear": "Borrar simulación"
   },
