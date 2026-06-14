@@ -52,12 +52,16 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
           ×{group.count}
         </span>
       </PopoverTrigger>
-      <PopoverContent className="w-56" align="start">
-        <p className="text-xs font-medium text-muted-foreground">
+      <PopoverContent
+        className="w-56 flex flex-col overflow-hidden"
+        style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
+        align="start"
+      >
+        <p className="shrink-0 text-xs font-medium text-muted-foreground">
           {group.home}–{group.away} · ×{group.count}
         </p>
         <ul
-          className="mt-1 max-h-[50vh] overflow-y-auto text-sm"
+          className="mt-1 min-h-0 flex-1 overflow-y-auto text-sm"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
