@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DisplayNameEditor, type DisplayNameMode } from "@/components/profile/display-name-editor";
 
 interface Props {
   params: Promise<{ locale: string; userId: string }>;
@@ -27,14 +28,37 @@ export default async function ProfilePage({ params }: Props) {
   const supabase = await createClient();
   const now = new Date();
 
-  // Target user's profile
+  // Target user's profile (include display_name_changed_at for editor-mode gating)
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name")
+    .select("id, display_name, display_name_changed_at")
     .eq("id", userId)
     .single();
 
   if (!profile) notFound();
+
+  // Viewer identity — needed to decide which edit mode to show
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+
+  const { data: viewerProfile } = viewer
+    ? await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", viewer.id)
+        .single()
+    : { data: null };
+
+  const isAdmin = viewerProfile?.is_admin ?? false;
+  const isOwnProfile = viewer?.id === userId;
+
+  // Admin → unlimited edits; own profile + allowance not used → one-time edit; else → static
+  const editMode: DisplayNameMode = isAdmin
+    ? "admin"
+    : isOwnProfile && profile.display_name_changed_at == null
+      ? "self-once"
+      : "none";
 
   // Target user's email lives on auth.users, not profiles — read via admin client.
   const admin = createAdminClient();
@@ -132,7 +156,11 @@ export default async function ProfilePage({ params }: Props) {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">{profile.display_name}</h1>
+        <DisplayNameEditor
+          userId={userId}
+          initialName={profile.display_name}
+          mode={editMode}
+        />
         {email && (
           <a
             href={`mailto:${email}`}
