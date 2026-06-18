@@ -84,7 +84,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
   // ── Digest section data ──────────────────────────────────────────────────────
   const { data: appSettings } = await admin
     .from("app_settings")
-    .select("digest_mode, sync_mode")
+    .select("digest_mode, sync_mode, digest_layout")
     .eq("id", 1)
     .single();
 
@@ -184,6 +184,7 @@ export default async function AdminPage({ params, searchParams }: Props) {
         <TabsContent value="digest" className="mt-0">
           <DigestSection
             initialMode={appSettings?.digest_mode ?? "manual"}
+            initialLayout={appSettings?.digest_layout === "per_player" ? "per_player" : "per_match"}
             rounds={(digestRounds ?? []).map((r) => ({
               id: r.id,
               name_key: r.name_key,

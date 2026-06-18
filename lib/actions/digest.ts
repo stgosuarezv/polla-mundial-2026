@@ -43,6 +43,8 @@ function normalizeLocale(input: string | null | undefined): DigestLocale {
 
 // ── Digest mode (toggle) ─────────────────────────────────────────────────────
 
+export type DigestLayout = "per_match" | "per_player";
+
 export async function getDigestMode(): Promise<
   ActionResult<{ mode: "manual" | "automated" }>
 > {
@@ -93,6 +95,54 @@ export async function setDigestMode(
   return { ok: true };
 }
 
+export async function getDigestLayout(): Promise<ActionResult<{ layout: DigestLayout }>> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("app_settings")
+    .select("digest_layout")
+    .eq("id", 1)
+    .single();
+  if (error) return { ok: false, error: error.message };
+  const layout: DigestLayout =
+    data.digest_layout === "per_player" ? "per_player" : "per_match";
+  return { ok: true, data: { layout } };
+}
+
+export async function setDigestLayout(layout: DigestLayout): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard;
+  if (layout !== "per_match" && layout !== "per_player") {
+    return { ok: false, error: "Invalid layout" };
+  }
+  const admin = createAdminClient();
+
+  const { data: prev } = await admin
+    .from("app_settings")
+    .select("digest_layout")
+    .eq("id", 1)
+    .single();
+
+  const { error: updErr } = await admin
+    .from("app_settings")
+    .update({
+      digest_layout: layout,
+      updated_by: guard.userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", 1);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  await admin.from("app_settings_audit").insert({
+    changed_by: guard.userId,
+    old_value: { digest_layout: prev?.digest_layout ?? null },
+    new_value: { digest_layout: layout },
+  });
+
+  return { ok: true };
+}
+
 // ── Data fetch (shared by preview, send, CSV) ────────────────────────────────
 
 interface DigestData {
@@ -103,6 +153,7 @@ interface DigestData {
   profilesById: Map<string, string>;
   profileLocaleById: Map<string, DigestLocale>;
   teamsById: Map<string, DigestTeam>;
+  layout: DigestLayout;
 }
 
 async function fetchDigestData(roundId: string): Promise<DigestData | { error: string }> {
@@ -120,6 +171,14 @@ async function fetchDigestData(roundId: string): Promise<DigestData | { error: s
     stage: roundRow.stage,
     lock_time: roundRow.lock_time,
   };
+
+  const { data: settingsRow } = await admin
+    .from("app_settings")
+    .select("digest_layout")
+    .eq("id", 1)
+    .single();
+  const layout: DigestLayout =
+    settingsRow?.digest_layout === "per_player" ? "per_player" : "per_match";
 
   // Profiles
   const { data: profiles } = await admin
@@ -190,6 +249,7 @@ async function fetchDigestData(roundId: string): Promise<DigestData | { error: s
     profilesById,
     profileLocaleById,
     teamsById,
+    layout,
   };
 }
 
@@ -198,7 +258,8 @@ async function fetchDigestData(roundId: string): Promise<DigestData | { error: s
 export async function previewDigestForUser(
   roundId: string,
   userId: string,
-  localeOverride?: DigestLocale
+  localeOverride?: DigestLocale,
+  layoutOverride?: DigestLayout
 ): Promise<ActionResult<{ subject: string; html: string }>> {
   const guard = await requireAdmin();
   if (!guard.ok) return guard;
@@ -218,6 +279,7 @@ export async function previewDigestForUser(
     podioPredictions: data.podioPredictions,
     profilesById: data.profilesById,
     teamsById: data.teamsById,
+    layout: layoutOverride ?? data.layout,
   });
 
   return { ok: true, data: { subject, html } };
@@ -413,6 +475,7 @@ async function sendDigestForRound(
       podioPredictions: data.podioPredictions,
       profilesById: data.profilesById,
       teamsById: data.teamsById,
+      layout: data.layout,
     });
 
     const sendErr = await sendWithRetry({ from: FROM_EMAIL, to, subject, html });
@@ -486,6 +549,7 @@ export async function sendDigestToUser(
     podioPredictions: data.podioPredictions,
     profilesById: data.profilesById,
     teamsById: data.teamsById,
+    layout: data.layout,
   });
 
   const sendErr = await sendWithRetry({ from: FROM_EMAIL, to, subject, html });

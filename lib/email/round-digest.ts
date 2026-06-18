@@ -57,6 +57,7 @@ export interface RenderRoundDigestInput {
   podioPredictions?: DigestPodioPrediction[];
   profilesById: Map<string, string>;
   teamsById: Map<string, DigestTeam>;
+  layout?: "per_match" | "per_player";
 }
 
 const LABELS: Record<DigestLocale, Record<string, string>> = {
@@ -177,7 +178,9 @@ export function renderRoundDigest(input: RenderRoundDigestInput): {
   const body =
     input.round.stage === "podio"
       ? renderPodioBody(input, roundName, labels)
-      : renderMatchBody(input, roundName, labels);
+      : (input.layout ?? "per_match") === "per_player"
+        ? renderMatchBodyCompact(input, roundName, labels)
+        : renderMatchBody(input, roundName, labels);
 
   const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:720px;margin:0 auto;padding:20px;color:#0A0A0A;line-height:1.5">
   ${body}
@@ -268,6 +271,90 @@ function renderMatchBody(
     }
     all += `</div>`;
   }
+
+  return `${own}<hr style="margin:28px 0;border:none;border-top:1px solid #ddd">${all}`;
+}
+
+function renderMatchBodyCompact(
+  input: RenderRoundDigestInput,
+  roundName: string,
+  labels: Record<string, string>
+): string {
+  const { round, recipient, matches, matchPredictions = [], profilesById, teamsById } = input;
+  const locale = recipient.locale;
+  const showPenalty = round.stage === "knockout";
+
+  const sortedMatches = [...matches].sort(
+    (a, b) => new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
+  );
+
+  const predByMatchUser = new Map<string, Map<string, DigestMatchPrediction>>();
+  for (const p of matchPredictions) {
+    if (!predByMatchUser.has(p.match_id)) predByMatchUser.set(p.match_id, new Map());
+    predByMatchUser.get(p.match_id)!.set(p.user_id, p);
+  }
+
+  const ownByMatch = new Map<string, DigestMatchPrediction>();
+  for (const p of matchPredictions) {
+    if (p.user_id === recipient.id) ownByMatch.set(p.match_id, p);
+  }
+
+  const allPlayerIds = [...profilesById.keys()].sort((a, b) =>
+    (profilesById.get(a) ?? "").localeCompare(profilesById.get(b) ?? "")
+  );
+
+  // Own picks (same layout as per-match)
+  let own = `<h2 style="font-size:18px;margin:0 0 12px">${labels.yourPicks} — ${escape(roundName)}</h2>`;
+  own += `<ul style="margin:0;padding:0 0 0 18px">`;
+  for (const m of sortedMatches) {
+    const home = teamName(m.home_team, locale);
+    const away = teamName(m.away_team, locale);
+    const p = ownByMatch.get(m.id);
+    if (p) {
+      let line = `${escape(home)} <strong>${p.home_score_pred}–${p.away_score_pred}</strong> ${escape(away)}`;
+      if (showPenalty && p.penalty_winner_team_id) {
+        line += ` <span style="color:#666">(${labels.penaltyWinner}: ${escape(teamNameById(p.penalty_winner_team_id, teamsById, locale))})</span>`;
+      }
+      own += `<li style="margin:2px 0">${line}</li>`;
+    } else {
+      own += `<li style="margin:2px 0;color:#888">${escape(home)} vs ${escape(away)} — <em>${labels.noPick}</em></li>`;
+    }
+  }
+  own += `</ul>`;
+
+  // Everyone's picks — one row per player, one column per match
+  let all = `<h2 style="font-size:18px;margin:28px 0 12px">${labels.everyonesPicks}</h2>`;
+  all += `<div style="overflow-x:auto">`;
+  all += `<table style="border-collapse:collapse;font-size:12px">`;
+  all += `<thead><tr style="border-bottom:1px solid #ddd">`;
+  all += `<th style="text-align:left;padding:4px 8px 4px 0;font-weight:600">${labels.player}</th>`;
+  for (const m of sortedMatches) {
+    const homeCode = m.home_team?.code ?? "?";
+    const awayCode = m.away_team?.code ?? "?";
+    const kickoffLabel = fmtKickoff(m.kickoff_at, locale);
+    all += `<th style="text-align:center;padding:4px 3px;font-weight:600;white-space:nowrap" title="${escape(kickoffLabel)}">${escape(homeCode)}–${escape(awayCode)}</th>`;
+  }
+  all += `</tr></thead><tbody>`;
+  for (const userId of allPlayerIds) {
+    const name = profilesById.get(userId) ?? "?";
+    all += `<tr>`;
+    all += `<td style="padding:3px 8px 3px 0;white-space:nowrap">${escape(name)}</td>`;
+    for (const m of sortedMatches) {
+      const p = predByMatchUser.get(m.id)?.get(userId);
+      if (!p) {
+        all += `<td style="padding:3px 3px;text-align:center;color:#aaa">–</td>`;
+      } else {
+        let cell = `${p.home_score_pred}–${p.away_score_pred}`;
+        if (showPenalty && p.penalty_winner_team_id) {
+          const winner = teamsById.get(p.penalty_winner_team_id);
+          if (winner) cell += `<span style="color:#888;font-size:10px"> (${escape(winner.code)})</span>`;
+        }
+        all += `<td style="padding:3px 3px;text-align:center;white-space:nowrap">${cell}</td>`;
+      }
+    }
+    all += `</tr>`;
+  }
+  all += `</tbody></table></div>`;
 
   return `${own}<hr style="margin:28px 0;border:none;border-top:1px solid #ddd">${all}`;
 }

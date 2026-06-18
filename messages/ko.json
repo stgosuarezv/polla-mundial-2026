@@ -243,7 +243,13 @@
       "recentRound": "라운드",
       "recentSentAt": "시간",
       "recentSentBy": "보낸 사람",
-      "recentAutomated": "자동"
+      "recentAutomated": "자동",
+      "layoutTitle": "이메일 형식",
+      "layoutDescription": "«경기별»은 각 경기마다 모든 참가자를 보여주는 테이블을 표시합니다 (기존 형식). «선수별»은 하나의 압축된 전치 테이블을 사용하여 이메일 클라이언트에서 잘릴 가능성이 낮습니다.",
+      "layoutPerMatch": "경기별",
+      "layoutPerPlayer": "선수별 (컴팩트)",
+      "layoutSaved": "저장됨",
+      "layoutError": "오류: {error}"
     }
   },
   "rules": {
