@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button";
 import {
   getDigestMode,
   setDigestMode,
+  getDigestLayout,
+  setDigestLayout,
   previewDigestForUser,
   exportRoundDigestCsv,
   processLockedRoundsAsAdmin,
   sendDigestToUser,
+  type DigestLayout,
 } from "@/lib/actions/digest";
 
 interface RoundOption {
@@ -35,6 +38,7 @@ interface RecentSnapshot {
 
 interface DigestSectionProps {
   initialMode: "manual" | "automated";
+  initialLayout: DigestLayout;
   rounds: RoundOption[];
   users: UserOption[];
   recentSnapshots: RecentSnapshot[];
@@ -42,6 +46,7 @@ interface DigestSectionProps {
 
 export function DigestSection({
   initialMode,
+  initialLayout,
   rounds,
   users,
   recentSnapshots,
@@ -51,6 +56,10 @@ export function DigestSection({
   const [mode, setMode] = useState<"manual" | "automated">(initialMode);
   const [savingMode, startSavingMode] = useTransition();
   const [modeMsg, setModeMsg] = useState<string | null>(null);
+
+  const [layout, setLayout] = useState<DigestLayout>(initialLayout);
+  const [savingLayout, startSavingLayout] = useTransition();
+  const [layoutMsg, setLayoutMsg] = useState<string | null>(null);
 
   const [sending, startSending] = useTransition();
   const [sendMsg, setSendMsg] = useState<string | null>(null);
@@ -88,6 +97,21 @@ export function DigestSection({
         setModeMsg(t("modeSaved"));
       } else {
         setModeMsg(t("modeError", { error: result.error }));
+      }
+    });
+  }
+
+  function handleToggleLayout(next: DigestLayout) {
+    setLayoutMsg(null);
+    startSavingLayout(async () => {
+      const result = await setDigestLayout(next);
+      if (result.ok) {
+        setLayout(next);
+        const refreshed = await getDigestLayout();
+        if (refreshed.ok && refreshed.data) setLayout(refreshed.data.layout);
+        setLayoutMsg(t("layoutSaved"));
+      } else {
+        setLayoutMsg(t("layoutError", { error: result.error }));
       }
     });
   }
@@ -137,7 +161,8 @@ export function DigestSection({
       const result = await previewDigestForUser(
         previewRoundId,
         previewUserId,
-        previewLocale || undefined
+        previewLocale || undefined,
+        layout
       );
       if (result.ok && result.data) {
         setPreviewHtml(result.data.html);
@@ -194,6 +219,33 @@ export function DigestSection({
           </Button>
           {modeMsg && (
             <span className="ml-2 text-sm text-muted-foreground">{modeMsg}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Layout toggle */}
+      <div className="rounded-lg border p-4">
+        <h2 className="font-semibold">{t("layoutTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("layoutDescription")}</p>
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            variant={layout === "per_match" ? "default" : "outline"}
+            onClick={() => handleToggleLayout("per_match")}
+            disabled={savingLayout}
+            size="sm"
+          >
+            {t("layoutPerMatch")}
+          </Button>
+          <Button
+            variant={layout === "per_player" ? "default" : "outline"}
+            onClick={() => handleToggleLayout("per_player")}
+            disabled={savingLayout}
+            size="sm"
+          >
+            {t("layoutPerPlayer")}
+          </Button>
+          {layoutMsg && (
+            <span className="ml-2 text-sm text-muted-foreground">{layoutMsg}</span>
           )}
         </div>
       </div>

@@ -243,7 +243,13 @@
       "recentRound": "Ronda",
       "recentSentAt": "Cuándo",
       "recentSentBy": "Por",
-      "recentAutomated": "automático"
+      "recentAutomated": "automático",
+      "layoutTitle": "Formato del correo",
+      "layoutDescription": "«Por partido» muestra una tabla por partido con todos los jugadores (formato original). «Por jugador» usa una sola tabla transpuesta, más compacta y menos propensa a ser recortada por los clientes de correo.",
+      "layoutPerMatch": "Por partido",
+      "layoutPerPlayer": "Por jugador (compacto)",
+      "layoutSaved": "Guardado",
+      "layoutError": "Error: {error}"
     }
   },
   "rules": {

@@ -243,7 +243,13 @@
       "recentRound": "Round",
       "recentSentAt": "When",
       "recentSentBy": "By",
-      "recentAutomated": "automated"
+      "recentAutomated": "automated",
+      "layoutTitle": "Email layout",
+      "layoutDescription": "\"Per match\" shows one table per match listing all players (original format). \"Per player\" uses a single transposed table — more compact and less likely to be clipped by email clients.",
+      "layoutPerMatch": "Per match",
+      "layoutPerPlayer": "Per player (compact)",
+      "layoutSaved": "Saved",
+      "layoutError": "Error: {error}"
     }
   },
   "rules": {
