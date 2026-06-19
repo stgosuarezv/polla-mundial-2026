@@ -107,7 +107,16 @@
     "selectMatch": "경기 선택",
     "whatIfTitle": "가정해보기",
     "whatIfDescription": "가상의 결과를 입력해보세요 — 앞으로의 경기나 이미 끝난 경기를 바꿔서 순위가 어떻게 변하는지 확인할 수 있습니다. 본인만 볼 수 있습니다.",
-    "whatIfClear": "초기화"
+    "whatIfClear": "초기화",
+    "trajectoryTitle": "레이스",
+    "trajectorySubtitle": "라운드별 내 순위",
+    "trajectoryShow": "보기",
+    "trajectoryHide": "숨기기",
+    "trajectoryYou": "나",
+    "trajectoryEmpty": "최소 두 라운드가 진행되면 차트가 표시됩니다.",
+    "trajectoryOthers": "다른 참가자",
+    "trajectoryAria": "라운드별 순위 차트입니다. 내 라인이 금색으로 강조되어 있습니다.",
+    "trajectoryFootnote": "상위 8명 + 나, 총 {count, plural, other {#명}}."
   },
   "admin": {
     "title": "관리자 패널",

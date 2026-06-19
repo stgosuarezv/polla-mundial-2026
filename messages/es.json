@@ -107,7 +107,16 @@
     "selectMatch": "Seleccionar partido",
     "whatIfTitle": "Simular Resultados",
     "whatIfDescription": "Ingresa resultados hipotéticos (de próximos partidos o cambiando los ya jugados) para ver cómo se movería la tabla. Solo tú ves esto.",
-    "whatIfClear": "Borrar simulación"
+    "whatIfClear": "Borrar simulación",
+    "trajectoryTitle": "La Carrera",
+    "trajectorySubtitle": "Tu posición fecha a fecha",
+    "trajectoryShow": "Ver",
+    "trajectoryHide": "Ocultar",
+    "trajectoryYou": "Tú",
+    "trajectoryEmpty": "El gráfico aparecerá cuando se hayan jugado al menos dos fechas.",
+    "trajectoryOthers": "Resto del grupo",
+    "trajectoryAria": "Gráfico de posiciones por fecha. Tu línea está resaltada en dorado.",
+    "trajectoryFootnote": "Top 8 + tú, de {count, plural, one {# jugador} other {# jugadores}}."
   },
   "admin": {
     "title": "Panel de administración",

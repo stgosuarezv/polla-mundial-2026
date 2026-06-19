@@ -107,7 +107,16 @@
     "selectMatch": "Select match",
     "whatIfTitle": "What if?",
     "whatIfDescription": "Enter hypothetical results — for upcoming matches or by changing finished ones — to see how the standings would move. Only you see this.",
-    "whatIfClear": "Clear simulation"
+    "whatIfClear": "Clear simulation",
+    "trajectoryTitle": "The Race",
+    "trajectorySubtitle": "Your rank, round by round",
+    "trajectoryShow": "Show",
+    "trajectoryHide": "Hide",
+    "trajectoryYou": "You",
+    "trajectoryEmpty": "The chart appears once at least two rounds have been played.",
+    "trajectoryOthers": "The rest",
+    "trajectoryAria": "Standings-over-time chart. Your line is highlighted in gold.",
+    "trajectoryFootnote": "Top 8 + you, of {count, plural, one {# player} other {# players}}."
   },
   "admin": {
     "title": "Admin Panel",
