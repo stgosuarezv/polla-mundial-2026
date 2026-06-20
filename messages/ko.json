@@ -107,7 +107,16 @@
     "selectMatch": "경기 선택",
     "whatIfTitle": "가정해보기",
     "whatIfDescription": "가상의 결과를 입력해보세요 — 앞으로의 경기나 이미 끝난 경기를 바꿔서 순위가 어떻게 변하는지 확인할 수 있습니다. 본인만 볼 수 있습니다.",
-    "whatIfClear": "초기화"
+    "whatIfClear": "초기화",
+    "oracleTitle": "폴라의 신탁",
+    "oracleSubtitle": "경기별 그룹의 예상",
+    "oracleFavorite": "그룹의 선택",
+    "oracleUpcomingTag": "경기 전",
+    "oraclePlayedTag": "경기 종료",
+    "oracleResult": "결과",
+    "oracleHit": "신탁 적중",
+    "oracleMiss": "신탁 빗나감",
+    "oracleVotes": "{count, plural, other {#표}}"
   },
   "admin": {
     "title": "관리자 패널",
@@ -293,5 +302,11 @@
     "mustBeDistinct": "세 팀이 달라야 합니다.",
     "errorSaving": "저장 오류. 다시 시도해 주세요.",
     "pts": "점"
+  },
+  "fun": {
+    "badge": "재미로",
+    "noPoints": "점수 미반영",
+    "tooltip": "이건 재미로 보는 거예요. 점수나 상금에는 영향을 주지 않습니다.",
+    "sectionKicker": "재미로"
   }
 }

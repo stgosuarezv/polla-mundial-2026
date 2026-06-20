@@ -14,6 +14,10 @@ import type { NextMatchCol } from "@/components/scoreboard/scoreboard-table";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
+import {
+  OraculoSection,
+  type OracleItem,
+} from "@/components/scoreboard/oraculo-section";
 
 const PRIZES_CLP = [
   1_250_000, 500_000, 250_000, 150_000, 125_000, 100_000, 75_000, 50_000,
@@ -190,6 +194,44 @@ export default async function ScoreboardPage({ params }: Props) {
     supabase,
     lockedMatchesForBrowser.map((m) => m.id),
     nameByUserId
+  );
+
+  // ── El Oráculo de la Polla (group consensus, just for fun) ───────────────────
+  // Soonest still-unplayed locked match (the prediction) + most recently
+  // finished one (the verdict). Reuses summaryByMatchId — no extra query.
+  const oracleWithPicks = lockedMatchesForBrowser.filter(
+    (m) => (summaryByMatchId.get(m.id)?.total ?? 0) > 0
+  );
+  const oracleUpcoming = oracleWithPicks.find((m) => m.status !== "finished");
+  const oracleFinished = [...oracleWithPicks]
+    .reverse()
+    .find(
+      (m) =>
+        m.status === "finished" &&
+        m.home_score != null &&
+        m.away_score != null
+    );
+  const oracleItems: OracleItem[] = [oracleUpcoming, oracleFinished].flatMap(
+    (m) => {
+      if (!m) return [];
+      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      return [
+        {
+          id: m.id,
+          homeCode: teamCode(home as TeamLite | null),
+          awayCode: teamCode(away as TeamLite | null),
+          kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+          summary: summaryByMatchId.get(m.id)!,
+          result:
+            m.status === "finished" &&
+            m.home_score != null &&
+            m.away_score != null
+              ? { home: m.home_score, away: m.away_score }
+              : null,
+        },
+      ];
+    }
   );
 
   // Group by kickoff_at so simultaneous matches share one dropdown entry.
@@ -439,6 +481,12 @@ export default async function ScoreboardPage({ params }: Props) {
             groups={browserGroups}
             defaultGroupId={defaultGroupId}
           />
+        </div>
+      )}
+
+      {oracleItems.length > 0 && (
+        <div className="print:hidden">
+          <OraculoSection items={oracleItems} />
         </div>
       )}
 
