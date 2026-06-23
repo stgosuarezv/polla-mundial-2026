@@ -7,20 +7,19 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { scorePrediction, scorePodio } from "@/lib/scoring/scoring";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 
-const UPSERT_BATCH = 500;
-
 export async function rescoreAllWithClient(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: SupabaseClient<any>
 ): Promise<{ updated: number }> {
   // 1. All finished matches — one query
-  const { data: matches } = await admin
+  const { data: matches, error: matchesErr } = await admin
     .from("matches")
     .select(
       "id, home_score, away_score, penalty_winner_team_id, advancing_team_id, home_team_id, away_team_id, rounds(stage)"
     )
     .eq("status", "finished");
 
+  if (matchesErr) throw new Error(`rescore: failed to fetch matches: ${matchesErr.message}`);
   if (!matches?.length) return { updated: 0 };
 
   const matchById = new Map(
@@ -33,7 +32,7 @@ export async function rescoreAllWithClient(
 
   // 2. All predictions for finished matches — one paginated fetch
   const finishedIds = [...matchById.keys()];
-  const { data: preds } = await fetchAllRows<{
+  const { data: preds, error: predsErr } = await fetchAllRows<{
     id: string;
     match_id: string;
     home_score_pred: number;
@@ -47,6 +46,8 @@ export async function rescoreAllWithClient(
       .order("id")
       .range(from, to)
   );
+
+  if (predsErr) throw new Error(`rescore: failed to fetch predictions: ${predsErr}`);
 
   // 3. Compute all scores in TypeScript
   const updates: { id: string; points_awarded: number }[] = [];
@@ -72,11 +73,16 @@ export async function rescoreAllWithClient(
     updates.push({ id: pred.id, points_awarded: breakdown.total });
   }
 
-  // 4. Bulk upsert in batches (conflict on primary key → only points_awarded updated)
-  for (let i = 0; i < updates.length; i += UPSERT_BATCH) {
-    await admin
-      .from("predictions")
-      .upsert(updates.slice(i, i + UPSERT_BATCH), { onConflict: "id" });
+  // 4. Bulk UPDATE via RPC — a true set-based UPDATE … FROM jsonb_to_recordset,
+  //    which only touches points_awarded. A PostgREST upsert was used here
+  //    previously but was rejected by Postgres because the partial payload
+  //    (id + points_awarded only) failed NOT NULL checks on the INSERT arm,
+  //    causing every rescore to silently no-op.
+  if (updates.length) {
+    const { error: predErr } = await admin.rpc("apply_prediction_points", {
+      p_updates: updates,
+    });
+    if (predErr) throw new Error(`rescore: apply_prediction_points failed: ${predErr.message}`);
   }
 
   // 5. Podio predictions — score only when both Final and 3rd-place are done
@@ -139,9 +145,10 @@ export async function rescoreAllWithClient(
       }));
 
       if (podioUpdates.length) {
-        await admin
-          .from("podio_predictions")
-          .upsert(podioUpdates, { onConflict: "id" });
+        const { error: podioErr } = await admin.rpc("apply_podio_points", {
+          p_updates: podioUpdates,
+        });
+        if (podioErr) throw new Error(`rescore: apply_podio_points failed: ${podioErr.message}`);
       }
     }
   }
