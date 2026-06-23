@@ -228,6 +228,7 @@ export async function syncFromFootballData(): Promise<
 
   try {
     const result = await syncResults(admin, apiKey);
+    await rescoreAllWithClient(admin);
     return { ok: true, data: result };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
