@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
 import { MatchCard } from "@/components/predictions/match-card";
+import { CollapsibleRound } from "@/components/predictions/collapsible-round";
 import { PredictionsForm } from "@/components/predictions/predictions-form";
 import { Countdown } from "@/components/countdown";
 
@@ -140,20 +141,13 @@ export default async function PredictionsPage({ params }: Props) {
           ) as Parameters<typeof tRounds>[0];
 
           return (
-            <section key={round.id}>
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="border-l-4 border-highlight pl-3 text-lg font-semibold text-[#1A2855] dark:text-foreground">{tRounds(roundKey)}</h2>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    isLocked
-                      ? "bg-muted text-muted-foreground"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {isLocked ? t("locked") : t("open")}
-                </span>
-              </div>
-
+            <CollapsibleRound
+              key={round.id}
+              title={tRounds(roundKey)}
+              locked={isLocked}
+              badgeLabel={isLocked ? t("locked") : t("open")}
+              defaultOpen={!isLocked}
+            >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {matches.map((match) => {
                   const ht = Array.isArray(match.home_team)
@@ -192,7 +186,7 @@ export default async function PredictionsPage({ params }: Props) {
                   );
                 })}
               </div>
-            </section>
+            </CollapsibleRound>
           );
         })}
       </div>
