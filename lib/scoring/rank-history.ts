@@ -7,7 +7,10 @@ import {
 export interface RankHistoryMatch {
   id: string;
   stage: Stage;
-  orderIndex: number;
+  /** ISO string used to sort matches chronologically. */
+  kickoffAt: string;
+  /** X-axis label shown on the chart, e.g. "BRA-CRO". */
+  label: string;
 }
 
 export interface RankHistoryPrediction {
@@ -23,18 +26,19 @@ export interface RankHistorySeries {
 }
 
 export interface RankHistory {
-  stepOrderIndices: number[];
+  /** One team-code label per match step, aligned with each series' ranks[]. */
+  stepLabels: string[];
   series: RankHistorySeries[];
   playerCount: number;
 }
 
 /**
- * Derives rank-per-round-per-user without any stored history.
+ * Derives rank-per-match-per-user without any stored history.
  *
- * For each distinct round (by `order_index`, ascending) that has at least one
- * finished match, it replays `computeLeaderboard` over the cumulative set of
- * finished matches up to that round and reads off every player's rank. Ties and
- * tie-break rules are inherited verbatim from `computeLeaderboard` /
+ * For each finished match in chronological order (kickoff_at, then id as a
+ * stable tiebreaker), it replays `computeLeaderboard` over the cumulative set
+ * of finished matches up to that point and reads off every player's rank. Ties
+ * and tie-break rules are inherited verbatim from `computeLeaderboard` /
  * `rankEntries`, so the final step matches the live leaderboard exactly (podio
  * excluded, matching the live board).
  */
@@ -43,9 +47,14 @@ export function buildRankHistory(
   finishedMatches: RankHistoryMatch[],
   predictions: RankHistoryPrediction[]
 ): RankHistory {
-  const stepOrderIndices = [
-    ...new Set(finishedMatches.map((m) => m.orderIndex)),
-  ].sort((a, b) => a - b);
+  // Sort chronologically; use match id as a stable tiebreaker when two matches
+  // share the same kickoff_at (common in the group stage).
+  const ordered = [...finishedMatches].sort((a, b) => {
+    const d = a.kickoffAt.localeCompare(b.kickoffAt);
+    return d !== 0 ? d : a.id.localeCompare(b.id);
+  });
+
+  const stepLabels = ordered.map((m) => m.label);
 
   const series: RankHistorySeries[] = users.map((u) => ({
     userId: u.id,
@@ -54,15 +63,14 @@ export function buildRankHistory(
   }));
   const seriesByUser = new Map(series.map((s) => [s.userId, s]));
 
-  for (const boundary of stepOrderIndices) {
-    const matchesSoFar = finishedMatches.filter(
-      (m) => m.orderIndex <= boundary
-    );
-    const rows = computeLeaderboard(users, matchesSoFar, predictions);
+  const cumulative: RankHistoryMatch[] = [];
+  for (const match of ordered) {
+    cumulative.push(match);
+    const rows = computeLeaderboard(users, cumulative, predictions);
     for (const row of rows) {
       seriesByUser.get(row.userId)?.ranks.push(row.rank);
     }
   }
 
-  return { stepOrderIndices, series, playerCount: users.length };
+  return { stepLabels, series, playerCount: users.length };
 }
