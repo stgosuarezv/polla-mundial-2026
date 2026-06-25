@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
+import { buildRankHistory } from "@/lib/scoring/rank-history";
 import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
 import {
   MatchStatsBrowser,
@@ -11,6 +12,7 @@ import {
 import type { MatchStatsItem } from "@/components/scoreboard/match-stats-card";
 import { ScoreboardTable } from "@/components/scoreboard/scoreboard-table";
 import type { NextMatchCol } from "@/components/scoreboard/scoreboard-table";
+import { TrajectorySection } from "@/components/scoreboard/trajectory-section";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
@@ -86,17 +88,25 @@ export default async function ScoreboardPage({ params }: Props) {
     .from("profiles")
     .select("id, display_name");
 
-  // Finished matches with stage (group/knockout) for perfect-match hit detection
+  // Finished matches with stage + team codes. Stage drives perfect-match hit
+  // detection; team codes label the per-match rank-trajectory chart.
   const { data: finishedMatches } = await supabase
     .from("matches")
-    .select("id, kickoff_at, rounds(stage)")
+    .select(
+      `id, kickoff_at, rounds(stage),
+       home_team:home_team_id ( code ),
+       away_team:away_team_id ( code )`
+    )
     .eq("status", "finished");
 
   const finishedWithStage = (finishedMatches ?? []).flatMap((m) => {
     const roundData = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
     const stage: "group" | "knockout" =
       roundData?.stage === "group" ? "group" : "knockout";
-    return [{ id: m.id, stage }];
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+    const label = `${home?.code ?? "TBD"}-${away?.code ?? "TBD"}`;
+    return [{ id: m.id, stage, kickoffAt: m.kickoff_at, label }];
   });
   const finishedIds = finishedWithStage.map((m) => m.id);
 
@@ -132,6 +142,11 @@ export default async function ScoreboardPage({ params }: Props) {
   }));
 
   const rows = computeLeaderboard(users, finishedWithStage, predictions);
+
+  // ── Rank trajectory ("La Carrera") ───────────────────────────────
+  // Rank-per-match per player, derived from the same finished-match data — no
+  // stored history, no migration. Labels are "HOME-AWAY" team codes.
+  const rankHistory = buildRankHistory(users, finishedWithStage, predictions);
 
   // Points from the most recently played match(es). Multiple matches can share
   // the same kickoff_at (common in group stage), so we sum all of them.
@@ -506,6 +521,15 @@ export default async function ScoreboardPage({ params }: Props) {
           whatIfMatches={whatIfMatches}
           predByKey={predByKey}
           realPtsByKey={realPtsByKey}
+        />
+      )}
+
+      {rows.length > 0 && (
+        <TrajectorySection
+          series={rankHistory.series}
+          stepLabels={rankHistory.stepLabels}
+          currentUserId={user?.id ?? null}
+          playerCount={rankHistory.playerCount}
         />
       )}
     </div>

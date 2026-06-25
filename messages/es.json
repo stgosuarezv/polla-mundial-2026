@@ -116,7 +116,21 @@
     "oracleResult": "Resultado",
     "oracleHit": "el oráculo acertó",
     "oracleMiss": "el oráculo falló",
-    "oracleVotes": "{count, plural, one {# voto} other {# votos}}"
+    "oracleVotes": "{count, plural, one {# voto} other {# votos}}",
+    "trajectoryTitle": "La Carrera",
+    "trajectorySubtitle": "Partido a partido",
+    "trajectoryShow": "Ver",
+    "trajectoryHide": "Ocultar",
+    "trajectoryYou": "Tú",
+    "trajectoryEmpty": "El gráfico aparecerá cuando se hayan jugado al menos dos partidos.",
+    "trajectoryOthers": "Resto del grupo",
+    "trajectoryAria": "Gráfico de posiciones partido a partido. Tu línea está resaltada en dorado.",
+    "trajectoryFootnote": "{count, plural, one {# jugador} other {# jugadores}} en total.",
+    "trajectoryPlayers": "Jugadores",
+    "trajectoryTop10": "Top 10",
+    "trajectoryTop25": "Top 25",
+    "trajectoryAll": "Todos",
+    "trajectoryNone": "Ninguno"
   },
   "admin": {
     "title": "Panel de administración",

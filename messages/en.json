@@ -116,7 +116,21 @@
     "oracleResult": "Result",
     "oracleHit": "the oracle nailed it",
     "oracleMiss": "the oracle missed",
-    "oracleVotes": "{count, plural, one {# vote} other {# votes}}"
+    "oracleVotes": "{count, plural, one {# vote} other {# votes}}",
+    "trajectoryTitle": "The Race",
+    "trajectorySubtitle": "Match by match",
+    "trajectoryShow": "Show",
+    "trajectoryHide": "Hide",
+    "trajectoryYou": "You",
+    "trajectoryEmpty": "The chart appears once at least two matches have been played.",
+    "trajectoryOthers": "The rest",
+    "trajectoryAria": "Standings over time, match by match. Your line is highlighted in gold.",
+    "trajectoryFootnote": "{count, plural, one {# player} other {# players}} total.",
+    "trajectoryPlayers": "Players",
+    "trajectoryTop10": "Top 10",
+    "trajectoryTop25": "Top 25",
+    "trajectoryAll": "All",
+    "trajectoryNone": "None"
   },
   "admin": {
     "title": "Admin Panel",

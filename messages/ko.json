@@ -116,7 +116,21 @@
     "oracleResult": "결과",
     "oracleHit": "신탁 적중",
     "oracleMiss": "신탁 빗나감",
-    "oracleVotes": "{count, plural, other {#표}}"
+    "oracleVotes": "{count, plural, other {#표}}",
+    "trajectoryTitle": "레이스",
+    "trajectorySubtitle": "경기별 순위",
+    "trajectoryShow": "보기",
+    "trajectoryHide": "숨기기",
+    "trajectoryYou": "나",
+    "trajectoryEmpty": "최소 두 경기가 진행되면 차트가 표시됩니다.",
+    "trajectoryOthers": "다른 참가자",
+    "trajectoryAria": "경기별 순위 차트입니다. 내 라인이 금색으로 강조되어 있습니다.",
+    "trajectoryFootnote": "총 {count, plural, other {#명}}.",
+    "trajectoryPlayers": "참가자",
+    "trajectoryTop10": "상위 10",
+    "trajectoryTop25": "상위 25",
+    "trajectoryAll": "전체",
+    "trajectoryNone": "없음"
   },
   "admin": {
     "title": "관리자 패널",

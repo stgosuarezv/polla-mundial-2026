@@ -141,8 +141,13 @@ export async function syncAndRescoreAsCron(): Promise<
   // 4. Rescore — idempotent and cheap (≤104 matches), so run it on every
   //    sync pass rather than only when this pass updated a match. This also
   //    repairs scores after manual result entry or a previously failed run.
-  const rescoreResult = await rescoreAllWithClient(admin);
-  const rescored = rescoreResult.updated;
+  let rescored: number;
+  try {
+    const rescoreResult = await rescoreAllWithClient(admin);
+    rescored = rescoreResult.updated;
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 
   return {
     ok: true,

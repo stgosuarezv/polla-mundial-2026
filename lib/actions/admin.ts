@@ -83,7 +83,11 @@ export async function updateMatchResult(
   // Score the result immediately — otherwise points only appear whenever the
   // next sync cron pass happens to run a rescore.
   if (status === "finished") {
-    await rescoreAllWithClient(admin);
+    try {
+      await rescoreAllWithClient(admin);
+    } catch (err) {
+      return { ok: false, error: `match saved but rescore failed: ${(err as Error).message}` };
+    }
   }
 
   return { ok: true, data: { matchId } };
@@ -95,8 +99,12 @@ export async function rescoreAll(): Promise<ActionResult<{ updated: number }>> {
   const guard = await requireAdmin();
   if (guard) return guard;
   const admin = createAdminClient();
-  const result = await rescoreAllWithClient(admin);
-  return { ok: true, data: result };
+  try {
+    const result = await rescoreAllWithClient(admin);
+    return { ok: true, data: result };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
 }
 
 // ── Update user display name ───────────────────────────────────────────────────
@@ -228,6 +236,7 @@ export async function syncFromFootballData(): Promise<
 
   try {
     const result = await syncResults(admin, apiKey);
+    await rescoreAllWithClient(admin);
     return { ok: true, data: result };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
