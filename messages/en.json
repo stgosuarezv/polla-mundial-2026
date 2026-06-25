@@ -121,7 +121,12 @@
     "trajectoryTop10": "Top 10",
     "trajectoryTop25": "Top 25",
     "trajectoryAll": "All",
-    "trajectoryNone": "None"
+    "trajectoryNone": "None",
+    "trajectoryViewByMatch": "Match",
+    "trajectoryViewByDay": "Day",
+    "trajectoryViewByRound": "Round",
+    "trajectoryDownloadPng": "PNG",
+    "trajectoryDownloadPdf": "PDF"
   },
   "admin": {
     "title": "Admin Panel",
