@@ -215,7 +215,7 @@ export function TrajectorySection({
                 fontWeight="600"
                 textAnchor="middle"
               >
-                {SHORT_LABEL[key] ?? key}
+                {SHORT_LABEL[key.replace(/^rounds\./, "")] ?? key}
               </text>
             </g>
           ))}
