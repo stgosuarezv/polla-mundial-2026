@@ -22,8 +22,8 @@ export function SyncSection() {
     startSync(async () => {
       const result = await syncFromFootballData();
       if (result.ok) {
-        const { updated } = result.data!;
-        setSyncMsg(t("syncSuccess", { updated }));
+        const { updated, teamsAssigned } = result.data!;
+        setSyncMsg(t("syncSuccess", { updated, teams: teamsAssigned }));
       } else {
         setSyncErr(result.error);
       }

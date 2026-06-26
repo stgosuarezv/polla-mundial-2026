@@ -224,7 +224,7 @@ export async function updateRoundLockTime(
 // ── Sync from football-data.org ────────────────────────────────────────────────
 
 export async function syncFromFootballData(): Promise<
-  ActionResult<{ updated: number; skipped: number; errors: string[] }>
+  ActionResult<{ updated: number; teamsAssigned: number; skipped: number; errors: string[] }>
 > {
   const guard = await requireAdmin();
   if (guard) return guard;

@@ -27,6 +27,7 @@ async function main() {
   const result = await syncResults(admin, apiKey);
 
   console.warn(`✅ Updated: ${result.updated} matches`);
+  console.warn(`   Teams assigned: ${result.teamsAssigned}`);
   console.warn(`   Skipped: ${result.skipped}`);
   if (result.errors.length) {
     console.warn(`   Errors (${result.errors.length}):`);

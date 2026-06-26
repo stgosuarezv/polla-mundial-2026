@@ -205,7 +205,7 @@
     },
     "sync": {
       "syncTitle": "Sincronizar desde football-data.org",
-      "syncDescription": "Descarga los resultados de partidos finalizados y actualiza la base de datos.",
+      "syncDescription": "Descarga los resultados y asigna los equipos en el cuadro de eliminación.",
       "syncModeTitle": "Modo de sincronización automática",
       "syncModeDescription": "En modo automático, el sistema sincroniza los resultados de partidos y recalcula los puntos cada minuto, pero solo cuando hay partidos pendientes de resultado. En modo manual, debes hacerlo tú.",
       "modeSaved": "Guardado",
@@ -214,7 +214,7 @@
       "modeAutomated": "Automático",
       "syncButton": "Sincronizar resultados",
       "syncing": "Sincronizando…",
-      "syncSuccess": "Sincronizado: {updated} partidos actualizados.",
+      "syncSuccess": "Sincronizado: {updated} partidos actualizados, {teams} equipos asignados.",
       "rescoreTitle": "Recalcular puntuaciones",
       "rescoreDescription": "Recalcula los puntos de todas las predicciones en partidos finalizados. Idempotente.",
       "rescoreButton": "Recalcular todo",
