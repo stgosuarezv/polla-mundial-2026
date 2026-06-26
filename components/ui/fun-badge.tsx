@@ -1,15 +1,15 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/utils";
 
 /**
  * Marks a surface as purely-for-fun: it never scores points or affects the
  * cash prize. The unmarked default in the app is "official"; anything playful
  * must wear this badge so nobody confuses it with the money pool.
+ *
+ * Server component — no client JS needed (no interaction, no state).
  */
-export function FunBadge({ className }: { className?: string }) {
-  const t = useTranslations("fun");
+export async function FunBadge({ className }: { className?: string }) {
+  const t = await getTranslations("fun");
   return (
     <span
       title={t("tooltip")}

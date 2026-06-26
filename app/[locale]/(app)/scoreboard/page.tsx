@@ -20,6 +20,11 @@ import {
   OraculoSection,
   type OracleItem,
 } from "@/components/scoreboard/oraculo-section";
+import {
+  oracleConsensus,
+  finishedOutcome,
+  oracleVerdict,
+} from "@/lib/scoring/oracle";
 
 const PRIZES_CLP = [
   1_250_000, 500_000, 250_000, 150_000, 125_000, 100_000, 75_000, 50_000,
@@ -212,8 +217,11 @@ export default async function ScoreboardPage({ params }: Props) {
   );
 
   // ── El Oráculo de la Polla (group consensus, just for fun) ───────────────────
-  // Soonest still-unplayed locked match (the prediction) + most recently
-  // finished one (the verdict). Reuses summaryByMatchId — no extra query.
+  // Soonest non-finished locked match (the prediction — live or scheduled) +
+  // most recently finished one (the verdict). Reuses summaryByMatchId — no extra
+  // query. Consensus + verdict are computed server-side here so the component
+  // ships no client JS and no heavy MatchPredictionSummary payload crosses the
+  // wire (per-player name arrays stay on the server).
   const oracleWithPicks = lockedMatchesForBrowser.filter(
     (m) => (summaryByMatchId.get(m.id)?.total ?? 0) > 0
   );
@@ -231,20 +239,50 @@ export default async function ScoreboardPage({ params }: Props) {
       if (!m) return [];
       const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
       const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+      const rawConsensus = oracleConsensus(summaryByMatchId.get(m.id)!);
+      const consensus = {
+        favorite: rawConsensus.favorite,
+        shares: rawConsensus.shares,
+        total: rawConsensus.total,
+      };
+      const isFinished =
+        m.status === "finished" &&
+        m.home_score != null &&
+        m.away_score != null;
+      const verdict = isFinished
+        ? oracleVerdict(
+            consensus.favorite,
+            finishedOutcome({
+              homeScore: m.home_score!,
+              awayScore: m.away_score!,
+              stage: round?.stage ?? "group",
+              homeTeamId: (home as TeamLite | null)?.id ?? null,
+              awayTeamId: (away as TeamLite | null)?.id ?? null,
+              advancingTeamId: (m.advancing_team_id as string | null) ?? null,
+              penaltyWinnerTeamId:
+                (m.penalty_winner_team_id as string | null) ?? null,
+            })
+          )
+        : null;
       return [
         {
           id: m.id,
           homeCode: teamCode(home as TeamLite | null),
           awayCode: teamCode(away as TeamLite | null),
           kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
-          summary: summaryByMatchId.get(m.id)!,
-          result:
-            m.status === "finished" &&
-            m.home_score != null &&
-            m.away_score != null
-              ? { home: m.home_score, away: m.away_score }
-              : null,
-        },
+          state:
+            m.status === "in_progress"
+              ? "live"
+              : m.status === "finished"
+                ? "finished"
+                : "scheduled",
+          consensus,
+          result: isFinished
+            ? { home: m.home_score!, away: m.away_score! }
+            : null,
+          verdict,
+        } satisfies OracleItem,
       ];
     }
   );
@@ -499,12 +537,6 @@ export default async function ScoreboardPage({ params }: Props) {
         </div>
       )}
 
-      {oracleItems.length > 0 && (
-        <div className="print:hidden">
-          <OraculoSection items={oracleItems} />
-        </div>
-      )}
-
       {rows.length === 0 ? (
         <p className="text-muted-foreground">{t("noData")}</p>
       ) : (
@@ -522,6 +554,12 @@ export default async function ScoreboardPage({ params }: Props) {
           predByKey={predByKey}
           realPtsByKey={realPtsByKey}
         />
+      )}
+
+      {oracleItems.length > 0 && (
+        <div className="print:hidden">
+          <OraculoSection items={oracleItems} />
+        </div>
       )}
 
       {rows.length > 0 && (

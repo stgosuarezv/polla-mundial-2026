@@ -1,18 +1,33 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { FunSection } from "@/components/ui/fun-section";
-import { oracleConsensus, oracleVerdict } from "@/lib/scoring/oracle";
-import type { MatchPredictionSummary } from "@/lib/scoring/prediction-summary";
+import type { Outcome } from "@/lib/scoring/oracle";
 
+/**
+ * Minimal DTO for one oracle card. Consensus + verdict are computed server-side
+ * in scoreboard/page.tsx so (a) no client JS is needed to crunch the numbers,
+ * and (b) the full MatchPredictionSummary (incl. per-player name arrays) never
+ * crosses the wire to the browser.
+ */
 export interface OracleItem {
   id: string;
   homeCode: string;
   awayCode: string;
   kickoffLabel: string;
-  summary: MatchPredictionSummary;
-  /** Final score when the match is finished; null while it's still upcoming. */
+  /** Derived from match status: scheduled / live (in_progress) / finished. */
+  state: "scheduled" | "live" | "finished";
+  /** Pre-computed server-side from oracleConsensus(). */
+  consensus: {
+    favorite: Outcome;
+    shares: { home: number; draw: number; away: number };
+    total: number;
+  };
+  /** Final score when the match is finished; null while upcoming or live. */
   result: { home: number; away: number } | null;
+  /**
+   * Knockout-aware verdict, pre-computed via finishedOutcome() + oracleVerdict()
+   * on the server. Null when the match hasn't finished yet.
+   */
+  verdict: "hit" | "miss" | null;
 }
 
 // Cool, deliberately non-gold palette — gold is reserved for the cash prize.
@@ -55,20 +70,22 @@ function ConsensusBar({
   );
 }
 
-function OracleCard({ item }: { item: OracleItem }) {
-  const t = useTranslations("scoreboard");
-  const consensus = oracleConsensus(item.summary);
+async function OracleCard({ item }: { item: OracleItem }) {
+  const t = await getTranslations("scoreboard");
 
   const favoriteLabel: string =
-    consensus.favorite === "home"
+    item.consensus.favorite === "home"
       ? item.homeCode
-      : consensus.favorite === "away"
+      : item.consensus.favorite === "away"
         ? item.awayCode
         : t("draw");
 
-  const verdict = item.result
-    ? oracleVerdict(consensus.favorite, item.result.home, item.result.away)
-    : null;
+  const stateTag =
+    item.state === "live"
+      ? t("oracleLiveTag")
+      : item.state === "finished"
+        ? t("oraclePlayedTag")
+        : t("oracleUpcomingTag");
 
   return (
     <div className="rounded-lg border p-3">
@@ -76,9 +93,7 @@ function OracleCard({ item }: { item: OracleItem }) {
         <span className="dark:text-foreground font-semibold text-[#1A2855]">
           {item.homeCode} – {item.awayCode}
         </span>
-        <span className="text-muted-foreground text-xs">
-          {item.result ? t("oraclePlayedTag") : t("oracleUpcomingTag")}
-        </span>
+        <span className="text-muted-foreground text-xs">{stateTag}</span>
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
@@ -86,33 +101,33 @@ function OracleCard({ item }: { item: OracleItem }) {
           {t("oracleFavorite")}
         </span>
         <span className="text-foreground text-sm font-semibold">
-          {favoriteLabel} · {pct(consensus.shares[consensus.favorite])}%
+          {favoriteLabel} · {pct(item.consensus.shares[item.consensus.favorite])}%
         </span>
       </div>
 
       <div className="mt-2 space-y-1.5">
         <ConsensusBar
           label={item.homeCode}
-          share={consensus.shares.home}
-          isFavorite={consensus.favorite === "home"}
+          share={item.consensus.shares.home}
+          isFavorite={item.consensus.favorite === "home"}
         />
         <ConsensusBar
           label={t("draw")}
-          share={consensus.shares.draw}
-          isFavorite={consensus.favorite === "draw"}
+          share={item.consensus.shares.draw}
+          isFavorite={item.consensus.favorite === "draw"}
         />
         <ConsensusBar
           label={item.awayCode}
-          share={consensus.shares.away}
-          isFavorite={consensus.favorite === "away"}
+          share={item.consensus.shares.away}
+          isFavorite={item.consensus.favorite === "away"}
         />
       </div>
 
       <p className="text-muted-foreground mt-2 text-[11px]">
-        {t("oracleVotes", { count: consensus.total })} · {item.kickoffLabel}
+        {t("oracleVotes", { count: item.consensus.total })} · {item.kickoffLabel}
       </p>
 
-      {item.result && verdict && (
+      {item.result && item.verdict && (
         <div className="mt-2 flex items-center gap-1.5 border-t pt-2 text-sm">
           <span className="text-foreground font-medium">
             {t("oracleResult")}: {item.result.home}–{item.result.away}
@@ -121,12 +136,14 @@ function OracleCard({ item }: { item: OracleItem }) {
             className="ml-auto font-medium"
             style={{
               color:
-                verdict === "hit"
+                item.verdict === "hit"
                   ? "var(--color-success)"
                   : "var(--color-muted-foreground)",
             }}
           >
-            {verdict === "hit" ? `✓ ${t("oracleHit")}` : `✕ ${t("oracleMiss")}`}
+            {item.verdict === "hit"
+              ? `✓ ${t("oracleHit")}`
+              : `✕ ${t("oracleMiss")}`}
           </span>
         </div>
       )}
@@ -134,11 +151,16 @@ function OracleCard({ item }: { item: OracleItem }) {
   );
 }
 
-export function OraculoSection({ items }: { items: OracleItem[] }) {
-  const t = useTranslations("scoreboard");
+export async function OraculoSection({ items }: { items: OracleItem[] }) {
+  const t = await getTranslations("scoreboard");
   if (items.length === 0) return null;
   return (
-    <FunSection title={t("oracleTitle")} subtitle={t("oracleSubtitle")}>
+    <FunSection
+      title={t("oracleTitle")}
+      subtitle={t("oracleSubtitle")}
+      collapsible
+      defaultOpen={false}
+    >
       <div
         className={
           items.length > 1 ? "grid gap-3 md:grid-cols-2" : "mx-auto max-w-xl"

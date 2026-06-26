@@ -50,13 +50,45 @@ export function actualOutcome(homeScore: number, awayScore: number): Outcome {
 }
 
 /**
+ * Resolves the true outcome of a finished match, handling knockout deciders.
+ *
+ * For group-stage draws the result is "draw". For knockout draws (e.g. 1–1
+ * after extra time), the real outcome is derived from `advancingTeamId` (or
+ * `penaltyWinnerTeamId` as fallback), matched against the home/away team ids.
+ * If scores differ the winner is clear regardless of stage. Falls back to
+ * "draw" when the decider field isn't populated yet.
+ */
+export function finishedOutcome(opts: {
+  homeScore: number;
+  awayScore: number;
+  /** Round stage from the DB — "group" or "knockout". */
+  stage: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
+  advancingTeamId: string | null;
+  penaltyWinnerTeamId: string | null;
+}): Outcome {
+  if (opts.homeScore > opts.awayScore) return "home";
+  if (opts.awayScore > opts.homeScore) return "away";
+  // Level scores — group stage is a genuine draw; knockout has a decider.
+  if (opts.stage !== "knockout") return "draw";
+  const decider = opts.advancingTeamId ?? opts.penaltyWinnerTeamId;
+  if (!decider) return "draw"; // data not yet populated — defensive fallback
+  if (decider === opts.homeTeamId) return "home";
+  if (decider === opts.awayTeamId) return "away";
+  return "draw";
+}
+
+/**
  * Did the pool's consensus call the real result? "hit" if the group's favorite
  * outcome matches what actually happened, else "miss". Purely informational.
+ *
+ * Pass `actual` computed via `finishedOutcome` so knockout deciders are
+ * respected (e.g. a 1–1 penalty win is "home"/"away", not "draw").
  */
 export function oracleVerdict(
   favorite: Outcome,
-  homeScore: number,
-  awayScore: number
+  actual: Outcome
 ): "hit" | "miss" {
-  return favorite === actualOutcome(homeScore, awayScore) ? "hit" : "miss";
+  return favorite === actual ? "hit" : "miss";
 }

@@ -3,6 +3,7 @@ import {
   oracleConsensus,
   oracleVerdict,
   actualOutcome,
+  finishedOutcome,
 } from "../lib/scoring/oracle";
 import type { MatchPredictionSummary } from "../lib/scoring/prediction-summary";
 
@@ -53,21 +54,97 @@ describe("oracleConsensus", () => {
   });
 });
 
-describe("oracleVerdict", () => {
-  it("is a hit when the favorite matches the real outcome", () => {
-    expect(oracleVerdict("home", 2, 1)).toBe("hit");
-    expect(oracleVerdict("draw", 1, 1)).toBe("hit");
-    expect(oracleVerdict("away", 0, 3)).toBe("hit");
-  });
-
-  it("is a miss when the favorite is wrong", () => {
-    expect(oracleVerdict("home", 0, 2)).toBe("miss");
-    expect(oracleVerdict("draw", 2, 1)).toBe("miss");
-  });
-
+describe("actualOutcome", () => {
   it("derives the actual outcome from the scoreline", () => {
     expect(actualOutcome(3, 0)).toBe("home");
     expect(actualOutcome(0, 0)).toBe("draw");
     expect(actualOutcome(1, 2)).toBe("away");
+  });
+});
+
+describe("finishedOutcome", () => {
+  const base = {
+    homeTeamId: "team-a",
+    awayTeamId: "team-b",
+    advancingTeamId: null,
+    penaltyWinnerTeamId: null,
+  };
+
+  it("returns home when home score is higher (any stage)", () => {
+    expect(
+      finishedOutcome({ ...base, homeScore: 2, awayScore: 1, stage: "group" })
+    ).toBe("home");
+    expect(
+      finishedOutcome({ ...base, homeScore: 2, awayScore: 1, stage: "knockout" })
+    ).toBe("home");
+  });
+
+  it("returns away when away score is higher", () => {
+    expect(
+      finishedOutcome({ ...base, homeScore: 0, awayScore: 1, stage: "group" })
+    ).toBe("away");
+  });
+
+  it("returns draw for a level group-stage match", () => {
+    expect(
+      finishedOutcome({ ...base, homeScore: 1, awayScore: 1, stage: "group" })
+    ).toBe("draw");
+  });
+
+  it("resolves a knockout level score via advancingTeamId", () => {
+    expect(
+      finishedOutcome({
+        ...base,
+        homeScore: 1,
+        awayScore: 1,
+        stage: "knockout",
+        advancingTeamId: "team-a",
+      })
+    ).toBe("home");
+    expect(
+      finishedOutcome({
+        ...base,
+        homeScore: 1,
+        awayScore: 1,
+        stage: "knockout",
+        advancingTeamId: "team-b",
+      })
+    ).toBe("away");
+  });
+
+  it("falls back to penaltyWinnerTeamId when advancingTeamId is absent", () => {
+    expect(
+      finishedOutcome({
+        ...base,
+        homeScore: 1,
+        awayScore: 1,
+        stage: "knockout",
+        penaltyWinnerTeamId: "team-b",
+      })
+    ).toBe("away");
+  });
+
+  it("falls back to draw when no decider is recorded", () => {
+    expect(
+      finishedOutcome({
+        ...base,
+        homeScore: 1,
+        awayScore: 1,
+        stage: "knockout",
+      })
+    ).toBe("draw");
+  });
+});
+
+describe("oracleVerdict", () => {
+  it("is a hit when the favorite matches the real outcome", () => {
+    expect(oracleVerdict("home", "home")).toBe("hit");
+    expect(oracleVerdict("draw", "draw")).toBe("hit");
+    expect(oracleVerdict("away", "away")).toBe("hit");
+  });
+
+  it("is a miss when the favorite is wrong", () => {
+    expect(oracleVerdict("home", "away")).toBe("miss");
+    expect(oracleVerdict("draw", "home")).toBe("miss");
   });
 });
