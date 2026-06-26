@@ -9,6 +9,10 @@ export interface RankHistoryMatch {
   stage: Stage;
   /** ISO string used to sort matches chronologically. */
   kickoffAt: string;
+  /** Date portion of kickoffAt, e.g. "2026-06-01" — used to group by day. */
+  kickoffDate: string;
+  /** rounds.name_key, e.g. "rounds.group_1" — used to group by round. */
+  roundKey: string;
   /** X-axis label shown on the chart, e.g. "BRA-CRO". */
   label: string;
 }
@@ -28,6 +32,10 @@ export interface RankHistorySeries {
 export interface RankHistory {
   /** One team-code label per match step, aligned with each series' ranks[]. */
   stepLabels: string[];
+  /** Date per match step ("2026-06-01") — used to aggregate by day. */
+  stepDates: string[];
+  /** rounds.name_key per match step — used to aggregate by round. */
+  stepRoundKeys: string[];
   series: RankHistorySeries[];
   playerCount: number;
 }
@@ -55,6 +63,8 @@ export function buildRankHistory(
   });
 
   const stepLabels = ordered.map((m) => m.label);
+  const stepDates = ordered.map((m) => m.kickoffDate);
+  const stepRoundKeys = ordered.map((m) => m.roundKey);
 
   const series: RankHistorySeries[] = users.map((u) => ({
     userId: u.id,
@@ -72,5 +82,5 @@ export function buildRankHistory(
     }
   }
 
-  return { stepLabels, series, playerCount: users.length };
+  return { stepLabels, stepDates, stepRoundKeys, series, playerCount: users.length };
 }

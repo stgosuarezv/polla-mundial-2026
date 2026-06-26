@@ -89,7 +89,7 @@ export default async function ScoreboardPage({ params }: Props) {
   const { data: finishedMatches } = await supabase
     .from("matches")
     .select(
-      `id, kickoff_at, rounds(stage),
+      `id, kickoff_at, rounds(stage, name_key),
        home_team:home_team_id ( code ),
        away_team:away_team_id ( code )`
     )
@@ -102,7 +102,9 @@ export default async function ScoreboardPage({ params }: Props) {
     const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
     const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
     const label = `${home?.code ?? "TBD"}-${away?.code ?? "TBD"}`;
-    return [{ id: m.id, stage, kickoffAt: m.kickoff_at, label }];
+    const kickoffDate = m.kickoff_at.slice(0, 10);
+    const roundKey = roundData?.name_key ?? "unknown";
+    return [{ id: m.id, stage, kickoffAt: m.kickoff_at, kickoffDate, roundKey, label }];
   });
   const finishedIds = finishedWithStage.map((m) => m.id);
 
@@ -480,6 +482,8 @@ export default async function ScoreboardPage({ params }: Props) {
         <TrajectorySection
           series={rankHistory.series}
           stepLabels={rankHistory.stepLabels}
+          stepDates={rankHistory.stepDates}
+          stepRoundKeys={rankHistory.stepRoundKeys}
           currentUserId={user?.id ?? null}
           playerCount={rankHistory.playerCount}
         />

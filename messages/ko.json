@@ -121,7 +121,12 @@
     "trajectoryTop10": "상위 10",
     "trajectoryTop25": "상위 25",
     "trajectoryAll": "전체",
-    "trajectoryNone": "없음"
+    "trajectoryNone": "없음",
+    "trajectoryViewByMatch": "경기",
+    "trajectoryViewByDay": "일",
+    "trajectoryViewByRound": "라운드",
+    "trajectoryDownloadPng": "PNG",
+    "trajectoryDownloadPdf": "PDF"
   },
   "admin": {
     "title": "관리자 패널",
