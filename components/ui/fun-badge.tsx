@@ -14,7 +14,7 @@ export async function FunBadge({ className }: { className?: string }) {
     <span
       title={t("tooltip")}
       className={cn(
-        "border-border bg-muted/60 text-muted-foreground inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-[11px] font-medium select-none",
+        "border-border bg-muted/60 text-muted-foreground inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-xs font-medium select-none",
         className
       )}
     >

@@ -41,12 +41,12 @@ export async function FunSection({
   const header = (
     <div className="flex items-start justify-between gap-2">
       <div className="flex flex-col gap-0.5">
-        <span className="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+        <span className="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
           {t("sectionKicker")}
         </span>
         <h2 className="text-muted-foreground text-base font-bold">{title}</h2>
         {subtitle && (
-          <p className="text-muted-foreground text-xs">{subtitle}</p>
+          <p className="text-muted-foreground text-sm">{subtitle}</p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
