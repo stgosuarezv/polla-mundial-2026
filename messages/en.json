@@ -110,6 +110,20 @@
     "whatIfTitle": "What if?",
     "whatIfDescription": "Enter hypothetical results — for upcoming matches or by changing finished ones — to see how the standings would move. Only you see this.",
     "whatIfClear": "Clear simulation",
+    "oracleTitle": "The Pool Oracle",
+    "oracleSubtitle": "What the group believes, match by match",
+    "oracleFavorite": "Group favorite",
+    "oracleSummaryTitle": "Summary",
+    "oracleTotalRow": "Total",
+    "oracleRoundCurrent": "Current",
+    "oracleAllMatches": "{count, plural, one {# match} other {# matches}}",
+    "oracleLiveTag": "Live",
+    "oracleUpcomingTag": "Not played yet",
+    "oraclePlayedTag": "Played",
+    "oracleResult": "Result",
+    "oracleHit": "the oracle nailed it",
+    "oracleMiss": "the oracle missed",
+    "oracleVotes": "{count, plural, one {# vote} other {# votes}}",
     "trajectoryTitle": "The Race",
     "trajectorySubtitle": "Match by match",
     "trajectoryShow": "Show",
@@ -314,5 +328,11 @@
     "mustBeDistinct": "The three teams must be different.",
     "errorSaving": "Error saving. Try again.",
     "pts": "pts"
+  },
+  "fun": {
+    "badge": "Just for fun",
+    "noPoints": "Doesn't count",
+    "tooltip": "This is just for fun. It doesn't affect your score or the cash prize.",
+    "sectionKicker": "Just for fun"
   }
 }

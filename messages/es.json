@@ -110,6 +110,20 @@
     "whatIfTitle": "Simular Resultados",
     "whatIfDescription": "Ingresa resultados hipotéticos (de próximos partidos o cambiando los ya jugados) para ver cómo se movería la tabla. Solo tú ves esto.",
     "whatIfClear": "Borrar simulación",
+    "oracleTitle": "El Oráculo de la Polla",
+    "oracleSubtitle": "Lo que cree el grupo, partido a partido",
+    "oracleFavorite": "Favorito del grupo",
+    "oracleSummaryTitle": "Resumen",
+    "oracleTotalRow": "Total",
+    "oracleRoundCurrent": "En curso",
+    "oracleAllMatches": "{count, plural, one {# partido} other {# partidos}}",
+    "oracleLiveTag": "En vivo",
+    "oracleUpcomingTag": "Aún por jugarse",
+    "oraclePlayedTag": "Jugado",
+    "oracleResult": "Resultado",
+    "oracleHit": "el oráculo acertó",
+    "oracleMiss": "el oráculo falló",
+    "oracleVotes": "{count, plural, one {# voto} other {# votos}}",
     "trajectoryTitle": "La Carrera",
     "trajectorySubtitle": "Partido a partido",
     "trajectoryShow": "Ver",
@@ -314,5 +328,11 @@
     "mustBeDistinct": "Los tres equipos deben ser distintos.",
     "errorSaving": "Error al guardar. Inténtalo de nuevo.",
     "pts": "pts"
+  },
+  "fun": {
+    "badge": "Solo por diversión",
+    "noPoints": "No suma puntos",
+    "tooltip": "Esto es solo por diversión. No afecta tu puntaje ni el premio en dinero.",
+    "sectionKicker": "Por diversión"
   }
 }
