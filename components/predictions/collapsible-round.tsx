@@ -3,8 +3,8 @@ import { ChevronDown } from "lucide-react";
 
 /**
  * A round section whose match grid can be collapsed by clicking its header.
- * Past (locked) rounds default to collapsed so the page opens on the round
- * you actually need, without scrolling past every finished matchday.
+ * Fully-finished rounds default to collapsed so the page opens on the rounds
+ * you actually care about (open for predictions, or being played right now).
  *
  * Built on the native <details>/<summary> disclosure widget, so the toggle
  * needs no client JS and the browser provides correct semantics for free:
@@ -13,14 +13,21 @@ import { ChevronDown } from "lucide-react";
  * server-side and hydrate regardless of open state — collapsed only hides
  * them visually (display:none), so each MatchCard stays registered with the
  * PredictionsForm and "Save all" keeps working across collapsed rounds.
+ *
+ * The `data-round-collapsible` / `data-round-id` attributes let the
+ * RoundControls client island persist each round's open state to
+ * localStorage and drive the "Expand all" / "Collapse all" buttons —
+ * without this component itself needing to be a client component.
  */
 export function CollapsibleRound({
+  id,
   title,
   locked,
   badgeLabel,
   defaultOpen,
   children,
 }: {
+  id: string;
   title: string;
   locked: boolean;
   badgeLabel: string;
@@ -28,7 +35,12 @@ export function CollapsibleRound({
   children: ReactNode;
 }) {
   return (
-    <details open={defaultOpen} className="group">
+    <details
+      open={defaultOpen}
+      data-round-collapsible=""
+      data-round-id={id}
+      className="group"
+    >
       <summary className="mb-3 flex w-full cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
         <h2 className="border-highlight dark:text-foreground border-l-4 pl-3 text-lg font-semibold text-[#1A2855]">
           {title}

@@ -71,7 +71,9 @@
     "pointsBreakdown": "Desglose de puntos",
     "allPredictions": "Todas las predicciones",
     "saveAll": "Guardar todo",
-    "stats": "Stats"
+    "stats": "Stats",
+    "expandAll": "Expandir todo",
+    "collapseAll": "Contraer todo"
   },
   "scoreboard": {
     "title": "Tabla de posiciones",

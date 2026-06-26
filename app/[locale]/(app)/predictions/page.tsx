@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
 import { MatchCard } from "@/components/predictions/match-card";
 import { CollapsibleRound } from "@/components/predictions/collapsible-round";
+import { RoundControls } from "@/components/predictions/round-controls";
 import { PredictionsForm } from "@/components/predictions/predictions-form";
 import { Countdown } from "@/components/countdown";
 
@@ -94,6 +95,25 @@ export default async function PredictionsPage({ params }: Props) {
   // Find the next round to lock (countdown target)
   const nextRound = (rounds ?? []).find((r) => r.lock_time > now);
 
+  // ── Default collapse state ──────────────────────────────────────────────────
+  // A round only counts as "finished" once every one of its matches has
+  // finished. Locked-but-still-playing rounds are NOT finished, so they stay
+  // expanded by default to watch live results; only fully-finished rounds
+  // collapse. When the whole tournament is over (every round finished), the
+  // most recent round (last by order_index) is auto-opened so the page never
+  // loads fully collapsed.
+  const roundsList = rounds ?? [];
+  const isRoundFinished = (r: (typeof roundsList)[number]) => {
+    const ms = r.matches ?? [];
+    return (
+      ms.length > 0 &&
+      ms.every((m: { status: string }) => m.status === "finished")
+    );
+  };
+  const allFinished =
+    roundsList.length > 0 && roundsList.every(isRoundFinished);
+  const mostRecentRoundId = roundsList[roundsList.length - 1]?.id;
+
   const tCard = {
     noTeam: t("noTeam"),
     save: t("save"),
@@ -109,6 +129,11 @@ export default async function PredictionsPage({ params }: Props) {
     saveAll: t("saveAll"),
     saving: t("saving"),
     saved: t("saved"),
+  };
+
+  const tControls = {
+    expandAll: t("expandAll"),
+    collapseAll: t("collapseAll"),
   };
 
   return (
@@ -127,9 +152,15 @@ export default async function PredictionsPage({ params }: Props) {
           />
         )}
 
+        {/* Expand / collapse all + open-state persistence */}
+        {roundsList.length > 0 && <RoundControls labels={tControls} />}
+
         {/* Round sections */}
-        {(rounds ?? []).map((round) => {
+        {roundsList.map((round) => {
           const isLocked = round.lock_time <= now;
+          const defaultOpen =
+            !isRoundFinished(round) ||
+            (allFinished && round.id === mostRecentRoundId);
           const matches = (round.matches ?? []).sort(
             (a, b) =>
               new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
@@ -143,10 +174,11 @@ export default async function PredictionsPage({ params }: Props) {
           return (
             <CollapsibleRound
               key={round.id}
+              id={round.id}
               title={tRounds(roundKey)}
               locked={isLocked}
               badgeLabel={isLocked ? t("locked") : t("open")}
-              defaultOpen={!isLocked}
+              defaultOpen={defaultOpen}
             >
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {matches.map((match) => {
