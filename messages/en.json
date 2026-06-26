@@ -71,7 +71,9 @@
     "pointsBreakdown": "Points breakdown",
     "allPredictions": "All predictions",
     "saveAll": "Save all",
-    "stats": "Stats"
+    "stats": "Stats",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
   },
   "scoreboard": {
     "title": "Scoreboard",

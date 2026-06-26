@@ -71,7 +71,9 @@
     "pointsBreakdown": "점수 내역",
     "allPredictions": "모든 예측",
     "saveAll": "모두 저장",
-    "stats": "통계"
+    "stats": "통계",
+    "expandAll": "모두 펼치기",
+    "collapseAll": "모두 접기"
   },
   "scoreboard": {
     "title": "순위표",
