@@ -19,6 +19,7 @@ import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
 import {
   OraculoSection,
   type OracleItem,
+  type OracleRound,
 } from "@/components/scoreboard/oraculo-section";
 import {
   oracleConsensus,
@@ -201,7 +202,7 @@ export default async function ScoreboardPage({ params }: Props) {
        home_score, away_score, advancing_team_id, penalty_winner_team_id,
        home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
        away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
-       rounds!inner ( lock_time, stage )`
+       rounds!inner ( id, name_key, lock_time, stage, order_index )`
     )
     .order("kickoff_at", { ascending: true });
 
@@ -217,75 +218,91 @@ export default async function ScoreboardPage({ params }: Props) {
   );
 
   // ── El Oráculo de la Polla (group consensus, just for fun) ───────────────────
-  // Soonest non-finished locked match (the prediction — live or scheduled) +
-  // most recently finished one (the verdict). Reuses summaryByMatchId — no extra
-  // query. Consensus + verdict are computed server-side here so the component
-  // ships no client JS and no heavy MatchPredictionSummary payload crosses the
-  // wire (per-player name arrays stay on the server).
-  const oracleWithPicks = lockedMatchesForBrowser.filter(
-    (m) => (summaryByMatchId.get(m.id)?.total ?? 0) > 0
-  );
-  const oracleUpcoming = oracleWithPicks.find((m) => m.status !== "finished");
-  const oracleFinished = [...oracleWithPicks]
-    .reverse()
-    .find(
-      (m) =>
-        m.status === "finished" &&
-        m.home_score != null &&
-        m.away_score != null
-    );
-  const oracleItems: OracleItem[] = [oracleUpcoming, oracleFinished].flatMap(
-    (m) => {
-      if (!m) return [];
-      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
-      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
-      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
-      const rawConsensus = oracleConsensus(summaryByMatchId.get(m.id)!);
-      const consensus = {
-        favorite: rawConsensus.favorite,
-        shares: rawConsensus.shares,
-        total: rawConsensus.total,
-      };
-      const isFinished =
-        m.status === "finished" &&
-        m.home_score != null &&
-        m.away_score != null;
-      const verdict = isFinished
-        ? oracleVerdict(
-            consensus.favorite,
-            finishedOutcome({
-              homeScore: m.home_score!,
-              awayScore: m.away_score!,
-              stage: round?.stage ?? "group",
-              homeTeamId: (home as TeamLite | null)?.id ?? null,
-              awayTeamId: (away as TeamLite | null)?.id ?? null,
-              advancingTeamId: (m.advancing_team_id as string | null) ?? null,
-              penaltyWinnerTeamId:
-                (m.penalty_winner_team_id as string | null) ?? null,
-            })
-          )
-        : null;
-      return [
-        {
-          id: m.id,
-          homeCode: teamCode(home as TeamLite | null),
-          awayCode: teamCode(away as TeamLite | null),
-          kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
-          state:
-            m.status === "in_progress"
-              ? "live"
-              : m.status === "finished"
-                ? "finished"
-                : "scheduled",
-          consensus,
-          result: isFinished
-            ? { home: m.home_score!, away: m.away_score! }
-            : null,
-          verdict,
-        } satisfies OracleItem,
-      ];
+  // Build one OracleItem per locked match that has predictions, grouped by
+  // round. All consensus + verdict work happens server-side — no client JS,
+  // no heavy MatchPredictionSummary payload crossing the wire.
+  type OracleRoundAccum = Omit<OracleRound, "items"> & { items: OracleItem[] };
+  const oracleRoundMap = new Map<string, OracleRoundAccum>();
+
+  for (const m of lockedMatchesForBrowser) {
+    if ((summaryByMatchId.get(m.id)?.total ?? 0) === 0) continue;
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    if (!round) continue;
+
+    const rawConsensus = oracleConsensus(summaryByMatchId.get(m.id)!);
+    const consensus = {
+      favorite: rawConsensus.favorite,
+      shares: rawConsensus.shares,
+      total: rawConsensus.total,
+    };
+    const isFinished =
+      m.status === "finished" &&
+      m.home_score != null &&
+      m.away_score != null;
+    const verdict = isFinished
+      ? oracleVerdict(
+          consensus.favorite,
+          finishedOutcome({
+            homeScore: m.home_score!,
+            awayScore: m.away_score!,
+            stage: round.stage ?? "group",
+            homeTeamId: (home as TeamLite | null)?.id ?? null,
+            awayTeamId: (away as TeamLite | null)?.id ?? null,
+            advancingTeamId: (m.advancing_team_id as string | null) ?? null,
+            penaltyWinnerTeamId:
+              (m.penalty_winner_team_id as string | null) ?? null,
+          })
+        )
+      : null;
+
+    const item: OracleItem = {
+      id: m.id,
+      homeCode: teamCode(home as TeamLite | null),
+      awayCode: teamCode(away as TeamLite | null),
+      kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
+      state:
+        m.status === "in_progress"
+          ? "live"
+          : m.status === "finished"
+            ? "finished"
+            : "scheduled",
+      consensus,
+      result: isFinished ? { home: m.home_score!, away: m.away_score! } : null,
+      verdict,
+    };
+
+    const acc = oracleRoundMap.get(round.id) ?? {
+      id: round.id,
+      nameKey: round.name_key as string,
+      orderIndex: round.order_index as number,
+      isCurrent: false,
+      hits: 0,
+      finishedCount: 0,
+      items: [] as OracleItem[],
+    };
+    acc.items.push(item);
+    if (m.status !== "finished") acc.isCurrent = true;
+    if (isFinished) {
+      acc.finishedCount++;
+      if (verdict === "hit") acc.hits++;
     }
+    oracleRoundMap.set(round.id, acc);
+  }
+
+  const oracleRounds: OracleRound[] = [...oracleRoundMap.values()].sort(
+    (a, b) => a.orderIndex - b.orderIndex
   );
+
+  // Spotlight: soonest non-finished item + most recently finished item.
+  const allOracleItems = oracleRounds.flatMap((r) => r.items);
+  const oracleItems: OracleItem[] = [
+    allOracleItems.find((i) => i.state !== "finished"),
+    [...allOracleItems].reverse().find(
+      (i) => i.state === "finished" && i.result !== null
+    ),
+  ].flatMap((i) => (i ? [i] : []));
 
   // Group by kickoff_at so simultaneous matches share one dropdown entry.
   type BrowserGroupRaw = {
@@ -556,9 +573,9 @@ export default async function ScoreboardPage({ params }: Props) {
         />
       )}
 
-      {oracleItems.length > 0 && (
+      {oracleRounds.length > 0 && (
         <div className="print:hidden">
-          <OraculoSection items={oracleItems} />
+          <OraculoSection items={oracleItems} rounds={oracleRounds} />
         </div>
       )}
 

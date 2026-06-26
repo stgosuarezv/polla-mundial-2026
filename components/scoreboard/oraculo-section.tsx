@@ -1,33 +1,38 @@
 import { getTranslations } from "next-intl/server";
+import { ChevronDown } from "lucide-react";
 import { FunSection } from "@/components/ui/fun-section";
 import type { Outcome } from "@/lib/scoring/oracle";
 
 /**
- * Minimal DTO for one oracle card. Consensus + verdict are computed server-side
- * in scoreboard/page.tsx so (a) no client JS is needed to crunch the numbers,
- * and (b) the full MatchPredictionSummary (incl. per-player name arrays) never
- * crosses the wire to the browser.
+ * Minimal DTO for one oracle card/row. Computed server-side so no client JS
+ * is needed and no heavy MatchPredictionSummary crosses the wire.
  */
 export interface OracleItem {
   id: string;
   homeCode: string;
   awayCode: string;
   kickoffLabel: string;
-  /** Derived from match status: scheduled / live (in_progress) / finished. */
   state: "scheduled" | "live" | "finished";
-  /** Pre-computed server-side from oracleConsensus(). */
   consensus: {
     favorite: Outcome;
     shares: { home: number; draw: number; away: number };
     total: number;
   };
-  /** Final score when the match is finished; null while upcoming or live. */
   result: { home: number; away: number } | null;
-  /**
-   * Knockout-aware verdict, pre-computed via finishedOutcome() + oracleVerdict()
-   * on the server. Null when the match hasn't finished yet.
-   */
   verdict: "hit" | "miss" | null;
+}
+
+/** Per-round grouping with hit-rate stats for the summary table. */
+export interface OracleRound {
+  id: string;
+  /** Raw DB name_key value, e.g. "rounds.group_1". */
+  nameKey: string;
+  orderIndex: number;
+  /** True when the round is locked but still has unfinished matches. */
+  isCurrent: boolean;
+  hits: number;
+  finishedCount: number;
+  items: OracleItem[];
 }
 
 // Cool, deliberately non-gold palette — gold is reserved for the cash prize.
@@ -35,6 +40,8 @@ const BAR = "#5E7BBF";
 const BAR_FAVORITE = "#3D5BA9";
 
 const pct = (share: number) => Math.round(share * 100);
+
+// ── Spotlight card (hero layout, shown always) ──────────────────────────────
 
 function ConsensusBar({
   label,
@@ -70,10 +77,10 @@ function ConsensusBar({
   );
 }
 
-async function OracleCard({ item }: { item: OracleItem }) {
+async function SpotlightCard({ item }: { item: OracleItem }) {
   const t = await getTranslations("scoreboard");
 
-  const favoriteLabel: string =
+  const favoriteLabel =
     item.consensus.favorite === "home"
       ? item.homeCode
       : item.consensus.favorite === "away"
@@ -151,9 +158,193 @@ async function OracleCard({ item }: { item: OracleItem }) {
   );
 }
 
-export async function OraculoSection({ items }: { items: OracleItem[] }) {
+// ── Summary table ────────────────────────────────────────────────────────────
+
+async function SummaryTable({ rounds }: { rounds: OracleRound[] }) {
   const t = await getTranslations("scoreboard");
-  if (items.length === 0) return null;
+  const tRounds = await getTranslations("rounds");
+
+  const totalHits = rounds.reduce((s, r) => s + r.hits, 0);
+  const totalFinished = rounds.reduce((s, r) => s + r.finishedCount, 0);
+
+  return (
+    <div>
+      <p className="text-muted-foreground mb-2 text-[11px] font-semibold uppercase tracking-wider">
+        {t("oracleSummaryTitle")}
+      </p>
+      <div className="space-y-1">
+        {rounds.map((round) => {
+          const roundKey = round.nameKey.replace(
+            "rounds.",
+            ""
+          ) as Parameters<typeof tRounds>[0];
+          const hitPct =
+            round.finishedCount > 0
+              ? Math.round((round.hits / round.finishedCount) * 100)
+              : null;
+          return (
+            <div
+              key={round.id}
+              className="flex items-center gap-2 text-xs"
+            >
+              <span className="text-foreground min-w-0 flex-1 truncate font-medium">
+                {tRounds(roundKey)}
+              </span>
+              {round.isCurrent && (
+                <span
+                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                  style={{ background: "var(--color-muted)", color: BAR_FAVORITE }}
+                >
+                  {t("oracleRoundCurrent")}
+                </span>
+              )}
+              <span className="text-muted-foreground shrink-0 tabular-nums">
+                {round.finishedCount > 0 ? (
+                  <>
+                    {round.hits}/{round.finishedCount}
+                    <span className="ml-1.5 font-semibold" style={{ color: BAR_FAVORITE }}>
+                      {hitPct}%
+                    </span>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </span>
+            </div>
+          );
+        })}
+        {totalFinished > 0 && (
+          <div className="border-border mt-1 flex items-center gap-2 border-t pt-1 text-xs font-semibold">
+            <span className="text-foreground min-w-0 flex-1">{t("oracleTotalRow")}</span>
+            <span className="text-muted-foreground shrink-0 tabular-nums">
+              {totalHits}/{totalFinished}
+              <span
+                className="ml-1.5"
+                style={{ color: BAR_FAVORITE }}
+              >
+                {Math.round((totalHits / totalFinished) * 100)}%
+              </span>
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── History row (compact, used in "see all") ─────────────────────────────────
+
+async function HistoryRow({ item }: { item: OracleItem }) {
+  const t = await getTranslations("scoreboard");
+
+  const favoriteLabel =
+    item.consensus.favorite === "home"
+      ? item.homeCode
+      : item.consensus.favorite === "away"
+        ? item.awayCode
+        : t("draw");
+
+  return (
+    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 py-0.5 text-xs">
+      <span className="text-foreground font-medium">
+        {item.homeCode} – {item.awayCode}
+      </span>
+
+      {item.state === "finished" && item.result ? (
+        <>
+          <span className="text-muted-foreground tabular-nums">
+            {item.result.home}–{item.result.away}
+          </span>
+          <span
+            className="font-semibold"
+            style={{
+              color:
+                item.verdict === "hit"
+                  ? "var(--color-success)"
+                  : "var(--color-muted-foreground)",
+            }}
+          >
+            {item.verdict === "hit" ? "✓" : "✕"} {favoriteLabel}
+          </span>
+        </>
+      ) : (
+        <>
+          <span
+            className="text-muted-foreground text-[10px]"
+            style={item.state === "live" ? { color: BAR_FAVORITE } : undefined}
+          >
+            {item.state === "live" ? t("oracleLiveTag") : "—"}
+          </span>
+          <span className="text-muted-foreground">
+            {favoriteLabel} · {pct(item.consensus.shares[item.consensus.favorite])}%
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+async function HistorySection({ rounds }: { rounds: OracleRound[] }) {
+  const t = await getTranslations("scoreboard");
+  const tRounds = await getTranslations("rounds");
+
+  const totalCount = rounds.reduce((s, r) => s + r.items.length, 0);
+
+  return (
+    <details className="group/history mt-3">
+      <summary className="flex cursor-pointer list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
+        <span className="text-muted-foreground hover:text-foreground text-xs transition-colors">
+          {t("oracleAllMatches", { count: totalCount })}
+        </span>
+        <ChevronDown className="text-muted-foreground size-3.5 shrink-0 -rotate-90 transition-transform group-open/history:rotate-0" />
+      </summary>
+
+      <div className="mt-2 space-y-4">
+        {rounds.map((round) => {
+          const roundKey = round.nameKey.replace(
+            "rounds.",
+            ""
+          ) as Parameters<typeof tRounds>[0];
+          return (
+            <div key={round.id}>
+              <div className="mb-1 flex items-center gap-2">
+                <p className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider">
+                  {tRounds(roundKey)}
+                </p>
+                {round.isCurrent && (
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                    style={{ background: "var(--color-muted)", color: BAR_FAVORITE }}
+                  >
+                    {t("oracleRoundCurrent")}
+                  </span>
+                )}
+              </div>
+              <div className="divide-border divide-y">
+                {round.items.map((item) => (
+                  <HistoryRow key={item.id} item={item} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+}
+
+// ── Main export ──────────────────────────────────────────────────────────────
+
+export async function OraculoSection({
+  items,
+  rounds,
+}: {
+  items: OracleItem[];
+  rounds: OracleRound[];
+}) {
+  const t = await getTranslations("scoreboard");
+  if (rounds.length === 0) return null;
+
   return (
     <FunSection
       title={t("oracleTitle")}
@@ -161,15 +352,19 @@ export async function OraculoSection({ items }: { items: OracleItem[] }) {
       collapsible
       defaultOpen={false}
     >
-      <div
-        className={
-          items.length > 1 ? "grid gap-3 md:grid-cols-2" : "mx-auto max-w-xl"
-        }
-      >
-        {items.map((item) => (
-          <OracleCard key={item.id} item={item} />
-        ))}
-      </div>
+      <SummaryTable rounds={rounds} />
+
+      {items.length > 0 && (
+        <div
+          className={`mt-4 ${items.length > 1 ? "grid gap-3 md:grid-cols-2" : "mx-auto max-w-xl"}`}
+        >
+          {items.map((item) => (
+            <SpotlightCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+
+      <HistorySection rounds={rounds} />
     </FunSection>
   );
 }
