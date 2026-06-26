@@ -92,6 +92,7 @@ export async function setSyncMode(
 export async function syncAndRescoreAsCron(): Promise<
   ActionResult<{
     synced?: number;
+    teamsAssigned?: number;
     rescored?: number;
     errors?: string[];
     skipped?: string;
@@ -111,17 +112,30 @@ export async function syncAndRescoreAsCron(): Promise<
     return { ok: true, data: { skipped: "manual mode" } };
   }
 
-  // 2. Smart-skip: are there any matches that kicked off ≥ 105 minutes ago
-  //    and aren't finished yet? If not, nothing to poll for. A match can't
-  //    end before ~kickoff + 1h47 (90' + 15' halftime + stoppage), so this
-  //    opens the polling window just before the earliest possible full time.
-  const { count } = await admin
-    .from("matches")
-    .select("id", { count: "exact", head: true })
-    .lt("kickoff_at", new Date(Date.now() - 105 * 60 * 1000).toISOString())
-    .neq("status", "finished");
+  // 2. Smart-skip: proceed when EITHER:
+  //    a) A match kicked off ≥ 105 minutes ago and isn't finished yet (live
+  //       score polling window — can't end before kickoff + 1h47).
+  //    b) A TBD-team knockout match kicks off within 72 hours — we need to
+  //       fill in home_team_id / away_team_id before users can enter their
+  //       prediction, and football-data.org publishes bracket assignments in
+  //       the days before each round.
+  const TEAM_FILL_WINDOW_MS = 72 * 60 * 60 * 1000;
 
-  if ((count ?? 0) === 0) {
+  const [{ count: liveCount }, { count: teamFillCount }] = await Promise.all([
+    admin
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .lt("kickoff_at", new Date(Date.now() - 105 * 60 * 1000).toISOString())
+      .neq("status", "finished"),
+    admin
+      .from("matches")
+      .select("id", { count: "exact", head: true })
+      .lt("kickoff_at", new Date(Date.now() + TEAM_FILL_WINDOW_MS).toISOString())
+      .neq("status", "finished")
+      .or("home_team_id.is.null,away_team_id.is.null"),
+  ]);
+
+  if ((liveCount ?? 0) === 0 && (teamFillCount ?? 0) === 0) {
     return { ok: true, data: { skipped: "no pending matches" } };
   }
 
@@ -131,7 +145,7 @@ export async function syncAndRescoreAsCron(): Promise<
     return { ok: false, error: "FOOTBALL_DATA_API_KEY is not configured" };
   }
 
-  let syncResult: { updated: number; skipped: number; errors: string[] };
+  let syncResult: { updated: number; teamsAssigned: number; skipped: number; errors: string[] };
   try {
     syncResult = await syncResults(admin, apiKey);
   } catch (err) {
@@ -153,6 +167,7 @@ export async function syncAndRescoreAsCron(): Promise<
     ok: true,
     data: {
       synced: syncResult.updated,
+      teamsAssigned: syncResult.teamsAssigned,
       rescored,
       errors: syncResult.errors.length ? syncResult.errors : undefined,
     },

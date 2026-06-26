@@ -198,7 +198,7 @@
     },
     "sync": {
       "syncTitle": "Sync from football-data.org",
-      "syncDescription": "Fetches finished match scores and updates the database.",
+      "syncDescription": "Fetches finished match scores and fills in knockout bracket team assignments.",
       "syncModeTitle": "Auto-sync mode",
       "syncModeDescription": "In automated mode, the system syncs match results and rescores predictions every minute, but only when matches are pending resolution. In manual mode, you trigger it yourself.",
       "modeSaved": "Saved",
@@ -207,7 +207,7 @@
       "modeAutomated": "Automated",
       "syncButton": "Sync results",
       "syncing": "Syncing…",
-      "syncSuccess": "Synced: {updated} matches updated.",
+      "syncSuccess": "Synced: {updated} matches updated, {teams} teams assigned.",
       "rescoreTitle": "Trigger rescoring",
       "rescoreDescription": "Recomputes points for all predictions on finished matches. Safe to run multiple times.",
       "rescoreButton": "Rescore all",

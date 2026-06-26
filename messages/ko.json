@@ -198,7 +198,7 @@
     },
     "sync": {
       "syncTitle": "football-data.org에서 동기화",
-      "syncDescription": "완료된 경기 결과를 가져와 데이터베이스를 업데이트합니다.",
+      "syncDescription": "완료된 경기 결과를 가져오고 토너먼트 대진표 팀을 배정합니다.",
       "syncModeTitle": "자동 동기화 모드",
       "syncModeDescription": "자동 모드에서는 시스템이 1분마다 경기 결과를 동기화하고 점수를 재계산합니다. 단, 결과가 필요한 경기가 있을 때만 실행됩니다. 수동 모드에서는 직접 실행해야 합니다.",
       "modeSaved": "저장됨",
@@ -207,7 +207,7 @@
       "modeAutomated": "자동",
       "syncButton": "결과 동기화",
       "syncing": "동기화 중…",
-      "syncSuccess": "동기화 완료: {updated}개 경기 업데이트됨.",
+      "syncSuccess": "동기화 완료: {updated}개 경기 업데이트됨, {teams}개 팀 배정됨.",
       "rescoreTitle": "재채점",
       "rescoreDescription": "완료된 경기의 모든 예측 점수를 재계산합니다. 여러 번 실행해도 안전합니다.",
       "rescoreButton": "전체 재채점",
