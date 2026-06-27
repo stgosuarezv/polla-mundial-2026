@@ -71,7 +71,9 @@
     "pointsBreakdown": "Desglose de puntos",
     "allPredictions": "Todas las predicciones",
     "saveAll": "Guardar todo",
-    "stats": "Stats"
+    "stats": "Stats",
+    "expandAll": "Expandir todo",
+    "collapseAll": "Contraer todo"
   },
   "scoreboard": {
     "title": "Tabla de posiciones",
@@ -135,7 +137,12 @@
     "trajectoryTop10": "Top 10",
     "trajectoryTop25": "Top 25",
     "trajectoryAll": "Todos",
-    "trajectoryNone": "Ninguno"
+    "trajectoryNone": "Ninguno",
+    "trajectoryViewByMatch": "Partido",
+    "trajectoryViewByDay": "Día",
+    "trajectoryViewByRound": "Ronda",
+    "trajectoryDownloadPng": "PNG",
+    "trajectoryDownloadPdf": "PDF"
   },
   "admin": {
     "title": "Panel de administración",

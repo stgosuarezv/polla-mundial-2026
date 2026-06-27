@@ -71,7 +71,9 @@
     "pointsBreakdown": "Points breakdown",
     "allPredictions": "All predictions",
     "saveAll": "Save all",
-    "stats": "Stats"
+    "stats": "Stats",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
   },
   "scoreboard": {
     "title": "Scoreboard",
@@ -135,7 +137,12 @@
     "trajectoryTop10": "Top 10",
     "trajectoryTop25": "Top 25",
     "trajectoryAll": "All",
-    "trajectoryNone": "None"
+    "trajectoryNone": "None",
+    "trajectoryViewByMatch": "Match",
+    "trajectoryViewByDay": "Day",
+    "trajectoryViewByRound": "Round",
+    "trajectoryDownloadPng": "PNG",
+    "trajectoryDownloadPdf": "PDF"
   },
   "admin": {
     "title": "Admin Panel",

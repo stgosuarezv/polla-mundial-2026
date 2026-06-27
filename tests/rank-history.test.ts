@@ -15,13 +15,25 @@ function seriesOf(
   return history.series.find((s) => s.userId === userId)!.ranks;
 }
 
+// Helper to build a minimal match fixture.
+function match(
+  id: string,
+  stage: "group" | "knockout",
+  kickoffAt: string,
+  label = "AAA-BBB",
+  kickoffDate = kickoffAt.slice(0, 10),
+  roundKey = "rounds.group_1"
+) {
+  return { id, stage, kickoffAt, kickoffDate, roundKey, label };
+}
+
 describe("buildRankHistory", () => {
   it("tracks a player overtaking another between matches (chronological steps)", () => {
     // Match 0 (T1): B perfect (rank 1), A partial (rank 2).
     // Match 1 (T2): A perfect, B blank → A climbs to rank 1, B drops to rank 2.
     const matches = [
-      { id: "m0", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-BBB" },
-      { id: "m1", stage: "group" as const, kickoffAt: "2026-06-02T15:00:00Z", label: "CCC-DDD" },
+      match("m0", "group", "2026-06-01T15:00:00Z", "AAA-BBB"),
+      match("m1", "group", "2026-06-02T15:00:00Z", "CCC-DDD"),
     ];
     const predictions = [
       { userId: "A", matchId: "m0", pointsAwarded: 5 },
@@ -35,15 +47,14 @@ describe("buildRankHistory", () => {
     const history = buildRankHistory(users, matches, predictions);
 
     expect(history.stepLabels).toEqual(["AAA-BBB", "CCC-DDD"]);
+    expect(history.stepDates).toEqual(["2026-06-01", "2026-06-02"]);
     expect(seriesOf(history, "A")).toEqual([2, 1]);
     expect(seriesOf(history, "B")).toEqual([1, 2]);
     expect(seriesOf(history, "C")).toEqual([3, 3]);
   });
 
   it("gives every player rank 1 when all are tied at zero after one match", () => {
-    const matches = [
-      { id: "m0", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-BBB" },
-    ];
+    const matches = [match("m0", "group", "2026-06-01T15:00:00Z")];
     const history = buildRankHistory(users, matches, []);
 
     for (const u of users) {
@@ -56,8 +67,8 @@ describe("buildRankHistory", () => {
     // A has one 10-pt hit + one 0; B has two 5-pt partials — same total, but
     // A ranks higher because of the 10-pt "perfect hit".
     const matches = [
-      { id: "m0", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-BBB" },
-      { id: "m1", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "CCC-DDD" },
+      match("m0", "group", "2026-06-01T15:00:00Z", "AAA-BBB"),
+      match("m1", "group", "2026-06-01T15:00:00Z", "CCC-DDD"),
     ];
     const predictions = [
       { userId: "A", matchId: "m0", pointsAwarded: 10 },
@@ -80,10 +91,9 @@ describe("buildRankHistory", () => {
   });
 
   it("produces one step per match (including matches from different rounds)", () => {
-    // Three matches across two different rounds; each becomes its own step.
     const matches = [
-      { id: "m0", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-BBB" },
-      { id: "m2", stage: "knockout" as const, kickoffAt: "2026-06-15T18:00:00Z", label: "EEE-FFF" },
+      match("m0", "group", "2026-06-01T15:00:00Z", "AAA-BBB", "2026-06-01", "rounds.group_1"),
+      match("m2", "knockout", "2026-06-15T18:00:00Z", "EEE-FFF", "2026-06-15", "rounds.knockout_r32"),
     ];
     const predictions = [
       { userId: "A", matchId: "m0", pointsAwarded: 10 },
@@ -93,24 +103,24 @@ describe("buildRankHistory", () => {
     const history = buildRankHistory(users, matches, predictions);
 
     expect(history.stepLabels).toEqual(["AAA-BBB", "EEE-FFF"]);
-    // After m0: A leads (10 pts)
+    expect(history.stepRoundKeys).toEqual(["rounds.group_1", "rounds.knockout_r32"]);
+    // After m0: A leads; after m2: B's knockout pts carry it ahead.
     expect(seriesOf(history, "A")).toEqual([1, 2]);
-    expect(seriesOf(history, "B")).toEqual([2, 1]); // B's knockout pts carry it ahead
-    // Every series has one rank per step.
+    expect(seriesOf(history, "B")).toEqual([2, 1]);
     for (const s of history.series) expect(s.ranks).toHaveLength(2);
   });
 
   it("returns empty steps when no match has finished", () => {
     const history = buildRankHistory(users, [], []);
     expect(history.stepLabels).toEqual([]);
+    expect(history.stepDates).toEqual([]);
+    expect(history.stepRoundKeys).toEqual([]);
     expect(history.playerCount).toBe(3);
     for (const s of history.series) expect(s.ranks).toEqual([]);
   });
 
   it("produces a single step from one finished match", () => {
-    const matches = [
-      { id: "m0", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-BBB" },
-    ];
+    const matches = [match("m0", "group", "2026-06-01T15:00:00Z", "AAA-BBB")];
     const predictions = [{ userId: "A", matchId: "m0", pointsAwarded: 10 }];
     const history = buildRankHistory(users, matches, predictions);
     expect(history.stepLabels).toHaveLength(1);
@@ -119,13 +129,12 @@ describe("buildRankHistory", () => {
   });
 
   it("sorts by kickoffAt then id when two matches share the same kickoff time", () => {
-    // m-alpha and m-beta both at T=0; id sort puts m-alpha before m-beta.
+    // m-alpha < m-beta lexicographically → m-alpha step appears first
     const matches = [
-      { id: "m-beta", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "BBB-CCC" },
-      { id: "m-alpha", stage: "group" as const, kickoffAt: "2026-06-01T15:00:00Z", label: "AAA-ZZZ" },
+      match("m-beta", "group", "2026-06-01T15:00:00Z", "BBB-CCC"),
+      match("m-alpha", "group", "2026-06-01T15:00:00Z", "AAA-ZZZ"),
     ];
     const history = buildRankHistory(users, matches, []);
-    // m-alpha < m-beta lexicographically → m-alpha appears first
     expect(history.stepLabels).toEqual(["AAA-ZZZ", "BBB-CCC"]);
   });
 });
