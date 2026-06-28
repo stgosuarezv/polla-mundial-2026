@@ -25,30 +25,30 @@ export default async function UserPredictionsPage({ params }: Props) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  // Fetch the target user's profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name")
-    .eq("id", userId)
-    .single();
+  // Fetch profile and locked rounds in parallel — no dependency between them
+  const [{ data: profile }, { data: rounds }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, display_name")
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("rounds")
+      .select(
+        `id, stage, name_key, order_index, lock_time,
+         matches (
+           id, kickoff_at, status,
+           home_score, away_score, penalty_winner_team_id,
+           home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+           away_team:away_team_id ( id, code, name_en, name_es, name_ko )
+         )`
+      )
+      .neq("stage", "podio")
+      .lte("lock_time", now)
+      .order("order_index", { ascending: true }),
+  ]);
 
   if (!profile) notFound();
-
-  // Fetch locked rounds with matches and teams
-  const { data: rounds } = await supabase
-    .from("rounds")
-    .select(
-      `id, stage, name_key, order_index, lock_time,
-       matches (
-         id, kickoff_at, status,
-         home_score, away_score, penalty_winner_team_id,
-         home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
-         away_team:away_team_id ( id, code, name_en, name_es, name_ko )
-       )`
-    )
-    .neq("stage", "podio")
-    .lte("lock_time", now)
-    .order("order_index", { ascending: true });
 
   // Fetch that user's predictions for these rounds (RLS allows after lock)
   const matchIds = (rounds ?? []).flatMap((r) =>

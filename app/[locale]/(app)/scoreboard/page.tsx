@@ -85,26 +85,63 @@ export default async function ScoreboardPage({ params }: Props) {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ── Parallel batch 1: all independent fetches ───────────────────────────────
+  const [
+    {
+      data: { user },
+    },
+    { data: profiles },
+    { data: finishedMatches },
+    { data: completionData },
+    { data: allMatchesWithRound },
+    { data: upcoming },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from("profiles").select("id, display_name"),
+    // Finished matches with stage + team codes. Stage drives perfect-match hit
+    // detection; team codes label the per-match rank-trajectory chart.
+    supabase
+      .from("matches")
+      .select(
+        `id, kickoff_at, rounds(stage, name_key),
+         home_team:home_team_id ( code ),
+         away_team:away_team_id ( code )`
+      )
+      .eq("status", "finished"),
+    // SECURITY DEFINER fn returns counts only (no pick content) so it can see
+    // other players' unlocked-round predictions without leaking the actual picks.
+    supabase.rpc("prediction_completion"),
+    // All matches from locked rounds — used to populate the browseable stat panel
+    // (dropdown). Filtering by locked rounds is done client-side: PostgREST does
+    // not expose a clean way to filter on a join column via the JS client.
+    supabase
+      .from("matches")
+      .select(
+        `id, kickoff_at, status,
+         home_score, away_score, advancing_team_id, penalty_winner_team_id,
+         home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+         away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
+         rounds!inner ( id, name_key, lock_time, stage, order_index )`
+      )
+      .order("kickoff_at", { ascending: true }),
+    // Take the soonest match(es) not yet finished — including in-play ones, so
+    // the stats stay visible while a match is being played. Two simultaneous
+    // group matches are common (same kickoff_at) so we include all of them.
+    // Limit to 4 just in case.
+    supabase
+      .from("matches")
+      .select(
+        `id, kickoff_at, round_id,
+         home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+         away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
+         rounds!inner ( id, lock_time )`
+      )
+      .neq("status", "finished")
+      .order("kickoff_at", { ascending: true })
+      .limit(4),
+  ]);
 
-  // All profiles
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, display_name");
-
-  // Finished matches with stage + team codes. Stage drives perfect-match hit
-  // detection; team codes label the per-match rank-trajectory chart.
-  const { data: finishedMatches } = await supabase
-    .from("matches")
-    .select(
-      `id, kickoff_at, rounds(stage, name_key),
-       home_team:home_team_id ( code ),
-       away_team:away_team_id ( code )`
-    )
-    .eq("status", "finished");
-
+  // ── Derived values needed for batch 2 ───────────────────────────────────────
   const finishedWithStage = (finishedMatches ?? []).flatMap((m) => {
     const roundData = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
     const stage: "group" | "knockout" =
@@ -118,10 +155,56 @@ export default async function ScoreboardPage({ params }: Props) {
   });
   const finishedIds = finishedWithStage.map((m) => m.id);
 
+  // nameByUserId used by loadMatchSummaries
+  const nameByUserId = new Map(
+    (profiles ?? []).map((p) => [p.id, p.display_name as string])
+  );
+
+  const lockedMatchesForBrowser = (allMatchesWithRound ?? []).filter((m) => {
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    return round && round.lock_time <= nowIso;
+  });
+
+  const whatIfMatchIds = lockedMatchesForBrowser.map((m) => m.id);
+
+  const earliestKickoff = upcoming?.[0]?.kickoff_at;
+  const nextMatchesRaw = (upcoming ?? [])
+    .filter((m) => m.kickoff_at === earliestKickoff)
+    .map((m) => {
+      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+      return {
+        id: m.id,
+        kickoff_at: m.kickoff_at,
+        home: home ?? null,
+        away: away ?? null,
+        roundClosed: round ? round.lock_time <= nowIso : false,
+      };
+    });
+
+  // Predictions only for matches whose round has already locked.
+  const closedNextIds = nextMatchesRaw
+    .filter((m) => m.roundClosed)
+    .map((m) => m.id);
+
+  const completionByUserMap = new Map<
+    string,
+    { made: number; total: number; podioSlots: number }
+  >();
+  for (const c of completionData ?? []) {
+    completionByUserMap.set(c.user_id, {
+      made: Number(c.made),
+      total: Number(c.total),
+      podioSlots: c.podio_slots,
+    });
+  }
+
+  // ── Parallel batch 2: fetches that depend on batch 1 ────────────────────────
   // All predictions for finished matches (RLS allows seeing others' in locked
   // rounds). Paginated: 50 players × 100+ matches exceeds the 1,000-row cap.
-  const { data: preds } = finishedIds.length
-    ? await fetchAllRows<{
+  const predsPromise = finishedIds.length
+    ? fetchAllRows<{
         user_id: string;
         match_id: string;
         points_awarded: number | null;
@@ -133,15 +216,78 @@ export default async function ScoreboardPage({ params }: Props) {
           .order("id")
           .range(from, to)
       )
-    : { data: [] };
+    : Promise.resolve({
+        data: [] as {
+          user_id: string;
+          match_id: string;
+          points_awarded: number | null;
+        }[],
+      });
 
+  // Fetch everyone's predictions for locked matches (incl. penalty_winner_team_id
+  // for knockout scoring). Uses fetchAllRows to avoid the 1,000-row cap.
+  const whatIfPredsPromise = whatIfMatchIds.length
+    ? fetchAllRows<{
+        user_id: string;
+        match_id: string;
+        home_score_pred: number;
+        away_score_pred: number;
+        penalty_winner_team_id: string | null;
+      }>((from, to) =>
+        supabase
+          .from("predictions")
+          .select(
+            "user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id"
+          )
+          .in("match_id", whatIfMatchIds)
+          .order("id")
+          .range(from, to)
+      )
+    : Promise.resolve({
+        data: [] as {
+          user_id: string;
+          match_id: string;
+          home_score_pred: number;
+          away_score_pred: number;
+          penalty_winner_team_id: string | null;
+        }[],
+      });
+
+  const nextPredsPromise = closedNextIds.length
+    ? supabase
+        .from("predictions")
+        .select("user_id, match_id, home_score_pred, away_score_pred")
+        .in("match_id", closedNextIds)
+    : Promise.resolve({
+        data: [] as {
+          user_id: string;
+          match_id: string;
+          home_score_pred: number;
+          away_score_pred: number;
+        }[],
+      });
+
+  const [
+    { data: preds },
+    summaryByMatchId,
+    { data: whatIfPreds },
+    { data: nextPreds },
+  ] = await Promise.all([
+    predsPromise,
+    loadMatchSummaries(
+      supabase,
+      lockedMatchesForBrowser.map((m) => m.id),
+      nameByUserId
+    ),
+    whatIfPredsPromise,
+    nextPredsPromise,
+  ]);
+
+  // ── All derived computation ──────────────────────────────────────────────────
   const users = (profiles ?? []).map((p) => ({
     id: p.id,
     displayName: p.display_name,
   }));
-
-  // nameByUserId used by loadMatchSummaries
-  const nameByUserId = new Map(users.map((u) => [u.id, u.displayName]));
 
   const predictions = (preds ?? []).map((p) => ({
     userId: p.user_id,
@@ -177,48 +323,7 @@ export default async function ScoreboardPage({ params }: Props) {
     }
   }
 
-  // ── Prediction completion per player ────────────────────────────────────────
-  // SECURITY DEFINER fn returns counts only (no pick content) so it can see
-  // other players' unlocked-round predictions without leaking the actual picks.
-  const { data: completionData } = await supabase.rpc("prediction_completion");
-  const completionByUserMap = new Map<
-    string,
-    { made: number; total: number; podioSlots: number }
-  >();
-  for (const c of completionData ?? []) {
-    completionByUserMap.set(c.user_id, {
-      made: Number(c.made),
-      total: Number(c.total),
-      podioSlots: c.podio_slots,
-    });
-  }
-
   // ── Match-stats browser ──────────────────────────────────────────────────────
-  // All matches from locked rounds — used to populate the browseable stat panel
-  // (dropdown). Filtering by locked rounds is done client-side: PostgREST does
-  // not expose a clean way to filter on a join column via the JS client.
-  const { data: allMatchesWithRound } = await supabase
-    .from("matches")
-    .select(
-      `id, kickoff_at, status,
-       home_score, away_score, advancing_team_id, penalty_winner_team_id,
-       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
-       away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
-       rounds!inner ( id, name_key, lock_time, stage, order_index )`
-    )
-    .order("kickoff_at", { ascending: true });
-
-  const lockedMatchesForBrowser = (allMatchesWithRound ?? []).filter((m) => {
-    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
-    return round && round.lock_time <= nowIso;
-  });
-
-  const summaryByMatchId = await loadMatchSummaries(
-    supabase,
-    lockedMatchesForBrowser.map((m) => m.id),
-    nameByUserId
-  );
-
   // ── El Oráculo de la Polla (group consensus, just for fun) ───────────────────
   // Build one OracleItem per locked match that has predictions, grouped by
   // round. All consensus + verdict work happens server-side — no client JS,
@@ -367,29 +472,6 @@ export default async function ScoreboardPage({ params }: Props) {
   // hypothetical future results and counterfactual past ones.
   // We reuse lockedMatchesForBrowser (already filtered by round lock_time).
 
-  const whatIfMatchIds = lockedMatchesForBrowser.map((m) => m.id);
-
-  // Fetch everyone's predictions for these matches (incl. penalty_winner_team_id
-  // for knockout scoring). Uses fetchAllRows to avoid the 1,000-row cap.
-  const { data: whatIfPreds } = whatIfMatchIds.length
-    ? await fetchAllRows<{
-        user_id: string;
-        match_id: string;
-        home_score_pred: number;
-        away_score_pred: number;
-        penalty_winner_team_id: string | null;
-      }>((from, to) =>
-        supabase
-          .from("predictions")
-          .select(
-            "user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id"
-          )
-          .in("match_id", whatIfMatchIds)
-          .order("id")
-          .range(from, to)
-      )
-    : { data: [] };
-
   // predByKey: `${userId}:${matchId}` → prediction entry (plain Record for client)
   const predByKey: Record<string, WhatIfPredEntry> = {};
   for (const p of whatIfPreds ?? []) {
@@ -443,49 +525,6 @@ export default async function ScoreboardPage({ params }: Props) {
   });
 
   // ── Next-match table-column preview ─────────────────────────────────────────
-  // Take the soonest match(es) not yet finished — including in-play ones, so
-  // the stats stay visible while a match is being played. Two simultaneous
-  // group matches are common (same kickoff_at) so we include all of them.
-  // Limit to 4 just in case.
-  const { data: upcoming } = await supabase
-    .from("matches")
-    .select(
-      `id, kickoff_at, round_id,
-       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
-       away_team:away_team_id ( id, code, name_en, name_es, name_ko ),
-       rounds!inner ( id, lock_time )`
-    )
-    .neq("status", "finished")
-    .order("kickoff_at", { ascending: true })
-    .limit(4);
-
-  const earliestKickoff = upcoming?.[0]?.kickoff_at;
-  const nextMatchesRaw = (upcoming ?? [])
-    .filter((m) => m.kickoff_at === earliestKickoff)
-    .map((m) => {
-      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
-      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
-      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
-      return {
-        id: m.id,
-        kickoff_at: m.kickoff_at,
-        home: home ?? null,
-        away: away ?? null,
-        roundClosed: round ? round.lock_time <= nowIso : false,
-      };
-    });
-
-  // Predictions only for matches whose round has already locked.
-  const closedNextIds = nextMatchesRaw
-    .filter((m) => m.roundClosed)
-    .map((m) => m.id);
-  const { data: nextPreds } = closedNextIds.length
-    ? await supabase
-        .from("predictions")
-        .select("user_id, match_id, home_score_pred, away_score_pred")
-        .in("match_id", closedNextIds)
-    : { data: [] };
-
   // Serialize as plain Records for the client component (no Maps across boundary)
   const nextPredByKey: Record<string, { home: number; away: number }> = {};
   for (const p of nextPreds ?? []) {

@@ -22,18 +22,27 @@ export default async function PodioPage({ params }: Props) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  const { data: podioRound } = await supabase
-    .from("rounds")
-    .select("lock_time")
-    .eq("stage", "podio")
-    .single();
+  // Reads from the my_podio_prediction view (security_invoker, filters by
+  // auth.uid()) so this query can NEVER return another user's row — important
+  // here because podio_predictions' RLS exposes others' rows once the Podio
+  // window locks, and .maybeSingle() would otherwise throw or pick an arbitrary
+  // row. See CLAUDE.md "User-data queries".
+  const [{ data: podioRound }, { data: teamsRaw }, { data: existing }] =
+    await Promise.all([
+      supabase.from("rounds").select("lock_time").eq("stage", "podio").single(),
+      supabase
+        .from("teams")
+        .select("id, code, name_en, name_es, name_ko, flag_url")
+        .order("name_en", { ascending: true }),
+      supabase
+        .from("my_podio_prediction")
+        .select(
+          "champion_team_id, runner_up_team_id, third_place_team_id, points_awarded"
+        )
+        .maybeSingle(),
+    ]);
 
   const isLocked = podioRound ? podioRound.lock_time <= now : false;
-
-  const { data: teamsRaw } = await supabase
-    .from("teams")
-    .select("id, code, name_en, name_es, name_ko, flag_url")
-    .order("name_en", { ascending: true });
 
   const teams = (teamsRaw ?? []).map((team) => ({
     id: team.id,
@@ -41,18 +50,6 @@ export default async function PodioPage({ params }: Props) {
     name: teamName(team, locale),
     flag_url: team.flag_url,
   }));
-
-  // Reads from the my_podio_prediction view (security_invoker, filters by
-  // auth.uid()) so this query can NEVER return another user's row — important
-  // here because podio_predictions' RLS exposes others' rows once the Podio
-  // window locks, and .maybeSingle() would otherwise throw or pick an arbitrary
-  // row. See CLAUDE.md "User-data queries".
-  const { data: existing } = await supabase
-    .from("my_podio_prediction")
-    .select(
-      "champion_team_id, runner_up_team_id, third_place_team_id, points_awarded"
-    )
-    .maybeSingle();
 
   return (
     <div className="mx-auto max-w-md space-y-6">
