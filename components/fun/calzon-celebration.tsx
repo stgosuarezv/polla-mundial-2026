@@ -12,20 +12,25 @@ import { useTranslations } from "next-intl";
 import confetti from "canvas-confetti";
 import { markCalzonesSeen } from "@/lib/actions/calzon";
 
-// Emoji used as confetti shapes — rendered at scalar size so they're clearly
-// recognizable as underpants flying across the screen.
-const UNDERPANTS_EMOJI = ["🩲", "👙"];
-
-const COLORS = [
-  "#FF69B4", // hot pink
-  "#FF1493", // deep pink
-  "#FF4500", // red-orange
-  "#9B59B6", // purple
-  "#00CED1", // turquoise
-  "#FFD700", // gold
-  "#FF6347", // tomato
-  "#32CD32", // lime green
+// ---------------------------------------------------------------------------
+// Three underwear silhouettes as SVG paths (filled solid by canvas-confetti,
+// so the outline/silhouette is what's visible). Using shapeFromPath (not
+// shapeFromText/emoji) so the colors array actually tints each particle.
+//
+// Coordinate space ~0-100 wide, ~0-100 tall — canvas-confetti scales the
+// bounding box to fit the particle size automatically.
+// ---------------------------------------------------------------------------
+const PATHS = [
+  // Bikini bottom — wide waistband, tapers to a V at the crotch
+  "M 5,0 L 95,0 L 75,55 L 55,80 L 50,100 L 45,80 L 25,55 Z",
+  // Boy shorts — boxy, nearly rectangular, straight leg hem
+  "M 2,0 L 98,0 L 92,65 L 8,65 Z",
+  // Thong — very narrow triangle
+  "M 35,0 L 65,0 L 52,100 L 50,82 L 48,100 Z",
 ];
+
+// Three distinct colors — one per shape type → 3×3 = 9 visible combinations
+const COLORS = ["#FF69B4", "#9B59B6", "#FF2525"];
 
 // ---------------------------------------------------------------------------
 
@@ -58,9 +63,9 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
     ).matches;
 
     if (!prefersReduced) {
-      const scalar = 3;
-      const underpants = UNDERPANTS_EMOJI.map((text) =>
-        confetti.shapeFromText({ text, scalar })
+      const scalar = 4;
+      const underpants = PATHS.map((path) =>
+        confetti.shapeFromPath({ path })
       );
 
       const burst = (
@@ -105,9 +110,9 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
       aria-atomic="true"
       style={{
         position: "fixed",
-        top: "4.5rem",
+        top: "50%",
         left: "50%",
-        transform: "translateX(-50%)",
+        transform: "translateX(-50%) translateY(-50%)",
         zIndex: 9999,
         padding: "0.8rem 1.6rem",
         borderRadius: "0.875rem",
@@ -126,11 +131,8 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
       {t("calzonTitle")}
       <style>{`
         @keyframes calzon-pop {
-          from { opacity: 0; transform: translateX(-50%) scale(0.6); }
-          to   { opacity: 1; transform: translateX(-50%) scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .calzon-celebration { animation: none; }
+          from { opacity: 0; transform: translateX(-50%) translateY(-50%) scale(0.6); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(-50%) scale(1); }
         }
       `}</style>
     </div>
