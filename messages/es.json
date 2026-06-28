@@ -332,7 +332,10 @@
     "statsTitle": "Estadísticas del Podio",
     "statsEntries": "{count, plural, one {# podio ingresado} other {# podios ingresados}}",
     "statsOnMostPodiums": "En más podios",
-    "statsMostPopular": "Podio más elegido"
+    "statsMostPopular": "Podio más elegido",
+    "downloadPng": "Descargar PNG",
+    "downloadPdf": "Descargar PDF",
+    "seeWhoPicked": "Ver quiénes lo eligieron"
   },
   "fun": {
     "badge": "Solo por diversión",

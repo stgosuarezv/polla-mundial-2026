@@ -37,6 +37,7 @@ export default async function PodioPage({ params }: Props) {
     { data: teamsRaw },
     { data: existing },
     { data: allPodiosRaw },
+    { data: profilesRaw },
   ] = await Promise.all([
     supabase.from("rounds").select("lock_time").eq("stage", "podio").single(),
     supabase
@@ -51,7 +52,8 @@ export default async function PodioPage({ params }: Props) {
       .maybeSingle(),
     supabase
       .from("podio_predictions")
-      .select("champion_team_id, runner_up_team_id, third_place_team_id"),
+      .select("user_id, champion_team_id, runner_up_team_id, third_place_team_id"),
+    supabase.from("profiles").select("id, display_name"),
   ]);
 
   const isLocked = podioRound ? podioRound.lock_time <= now : false;
@@ -65,6 +67,7 @@ export default async function PodioPage({ params }: Props) {
 
   // Compute stats for post-lock display
   type PodioRow = {
+    user_id: string;
     champion_team_id: string | null;
     runner_up_team_id: string | null;
     third_place_team_id: string | null;
@@ -81,17 +84,27 @@ export default async function PodioPage({ params }: Props) {
 
   if (isLocked) {
     const teamById = new Map(teams.map((team) => [team.id, team]));
+    const nameById = new Map(
+      (profilesRaw ?? []).map((p) => [p.id, p.display_name as string])
+    );
+
     const completePodiums = ((allPodiosRaw ?? []) as PodioRow[]).filter(
       (r) => r.champion_team_id && r.runner_up_team_id && r.third_place_team_id
     );
     const totalEntries = completePodiums.length;
 
     if (totalEntries > 0) {
-      function rankByCount(ids: (string | null)[]): TeamStat[] {
+      function rankByCount(
+        pairs: Array<{ teamId: string | null; playerName: string }>
+      ): TeamStat[] {
         const counts = new Map<string, number>();
-        for (const id of ids) {
-          if (!id) continue;
-          counts.set(id, (counts.get(id) ?? 0) + 1);
+        const playersByTeam = new Map<string, string[]>();
+        for (const { teamId, playerName } of pairs) {
+          if (!teamId) continue;
+          counts.set(teamId, (counts.get(teamId) ?? 0) + 1);
+          const list = playersByTeam.get(teamId) ?? [];
+          list.push(playerName);
+          playersByTeam.set(teamId, list);
         }
         return [...counts.entries()]
           .sort((a, b) => {
@@ -108,19 +121,29 @@ export default async function PodioPage({ params }: Props) {
               code: team?.code ?? teamId,
               flag_url: team?.flag_url ?? null,
               count,
+              players: playersByTeam.get(teamId) ?? [],
             };
           });
       }
 
-      const champion = rankByCount(completePodiums.map((r) => r.champion_team_id));
-      const runnerUp = rankByCount(completePodiums.map((r) => r.runner_up_team_id));
-      const thirdPlace = rankByCount(completePodiums.map((r) => r.third_place_team_id));
+      const toPairs = (rows: PodioRow[], pick: (r: PodioRow) => string | null) =>
+        rows.map((r) => ({
+          teamId: pick(r),
+          playerName: nameById.get(r.user_id) ?? r.user_id,
+        }));
+
+      const champion = rankByCount(toPairs(completePodiums, (r) => r.champion_team_id));
+      const runnerUp = rankByCount(toPairs(completePodiums, (r) => r.runner_up_team_id));
+      const thirdPlace = rankByCount(toPairs(completePodiums, (r) => r.third_place_team_id));
       const onMostPodiums = rankByCount(
-        completePodiums.flatMap((r) => [
-          r.champion_team_id,
-          r.runner_up_team_id,
-          r.third_place_team_id,
-        ])
+        completePodiums.flatMap((r) => {
+          const name = nameById.get(r.user_id) ?? r.user_id;
+          return [
+            { teamId: r.champion_team_id, playerName: name },
+            { teamId: r.runner_up_team_id, playerName: name },
+            { teamId: r.third_place_team_id, playerName: name },
+          ];
+        })
       );
 
       // Most common exact 1-2-3 combination (show only when count ≥ 2)
@@ -138,9 +161,9 @@ export default async function PodioPage({ params }: Props) {
         const tpTeam = tpId ? teamById.get(tpId) : undefined;
         if (champTeam && ruTeam && tpTeam) {
           topTrio = {
-            champion: { ...champTeam, count: best[1] },
-            runnerUp: { ...ruTeam, count: best[1] },
-            thirdPlace: { ...tpTeam, count: best[1] },
+            champion: { ...champTeam, count: best[1], players: [] },
+            runnerUp: { ...ruTeam, count: best[1], players: [] },
+            thirdPlace: { ...tpTeam, count: best[1], players: [] },
             count: best[1],
           };
         }
@@ -211,6 +234,9 @@ export default async function PodioPage({ params }: Props) {
             statsThirdPlace: t("thirdPlace"),
             statsOnMostPodiums: t("statsOnMostPodiums"),
             statsMostPopular: t("statsMostPopular"),
+            downloadPng: t("downloadPng"),
+            downloadPdf: t("downloadPdf"),
+            seeWhoPicked: t("seeWhoPicked"),
           }}
         />
       )}
