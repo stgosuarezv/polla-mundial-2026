@@ -332,7 +332,10 @@
     "statsTitle": "포디엄 통계",
     "statsEntries": "{count, plural, other {# 개 포디엄 제출됨}}",
     "statsOnMostPodiums": "가장 많이 등장한 팀",
-    "statsMostPopular": "가장 인기 있는 포디엄"
+    "statsMostPopular": "가장 인기 있는 포디엄",
+    "downloadPng": "PNG 다운로드",
+    "downloadPdf": "PDF 다운로드",
+    "seeWhoPicked": "선택한 플레이어 보기"
   },
   "fun": {
     "badge": "재미로",

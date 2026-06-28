@@ -332,7 +332,10 @@
     "statsTitle": "Podium Stats",
     "statsEntries": "{count, plural, one {# podium submitted} other {# podiums submitted}}",
     "statsOnMostPodiums": "On the most podiums",
-    "statsMostPopular": "Most popular podium"
+    "statsMostPopular": "Most popular podium",
+    "downloadPng": "Download PNG",
+    "downloadPdf": "Download PDF",
+    "seeWhoPicked": "See who picked it"
   },
   "fun": {
     "badge": "Just for fun",
