@@ -311,7 +311,7 @@ export function ScoreboardTable({
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                     {t("points")}
                   </th>
-                  {simulating && (
+                  {(simulating || showLastMatch) && (
                     <th className="px-2 py-2 text-right font-medium text-muted-foreground w-14">
                       +/–
                     </th>
@@ -328,12 +328,6 @@ export function ScoreboardTable({
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">
                     {t("prize")}
                   </th>
-                  {showLastMatch && (
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground leading-tight">
-                      <div>Pts</div>
-                      <div>{t("lastMatchLabel")}</div>
-                    </th>
-                  )}
                   {simulating ? (
                     nextUnsimulatedMatch ? (
                       <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
@@ -486,8 +480,8 @@ export function ScoreboardTable({
                         {row.totalPoints}
                       </td>
 
-                      {/* Gain (simulating only) */}
-                      {simulating && (
+                      {/* +/– column: sim gain when simulating, last-match pts otherwise */}
+                      {simulating ? (
                         <td className="px-2 py-2.5 text-right w-14">
                           {gain !== 0 ? (
                             <span
@@ -507,7 +501,25 @@ export function ScoreboardTable({
                             </span>
                           )}
                         </td>
-                      )}
+                      ) : showLastMatch ? (
+                        <td className="px-2 py-2.5 text-right w-14">
+                          {(lastMatchPts[row.userId] ?? 0) > 0 ? (
+                            <span
+                              className="text-xs font-medium"
+                              style={{ color: "#16a34a" }}
+                            >
+                              +{lastMatchPts[row.userId]}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "#9ca3af" }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                      ) : null}
 
                       {/* Hits */}
                       <td className="px-3 py-2.5 text-right text-muted-foreground">
@@ -535,15 +547,6 @@ export function ScoreboardTable({
                       >
                         {prize}
                       </td>
-
-                      {/* Last-match points (static — historical) */}
-                      {showLastMatch && (
-                        <td className="px-3 py-2.5 text-right text-muted-foreground">
-                          {lastMatchPts[row.userId] !== undefined
-                            ? lastMatchPts[row.userId]
-                            : "—"}
-                        </td>
-                      )}
 
                       {/* Next-match prediction preview columns */}
                       {simulating ? (
@@ -623,12 +626,6 @@ export function ScoreboardTable({
             </table>
           </div>
 
-          {/* Last-match footnote */}
-          {showLastMatch && (
-            <p className="text-xs text-muted-foreground/70 mt-1">
-              {t("lastMatchFootnote")}
-            </p>
-          )}
         </div>
       </div>
     </div>
