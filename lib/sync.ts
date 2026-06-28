@@ -78,10 +78,35 @@ export function resolveTeamFill(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function syncResults(admin: SupabaseClient<any>, apiKey: string): Promise<SyncResult> {
-  // Fetch ALL WC 2026 matches so we can both update scores (FINISHED) and fill
-  // team slots (upcoming/in-progress with TBD teams).
+  // ── Step 1: Load our DB match rows ───────────────────────────────────────────
+  // We do this first so we can build the IDs list for the API call, and also
+  // to avoid a second query later for the team-slots map.
+  const { data: dbSlots } = await admin
+    .from("matches")
+    .select("external_id, home_team_id, away_team_id");
+
+  const slotByExtId = new Map<string, DbTeamSlot>(
+    (dbSlots ?? []).flatMap(
+      (r: { external_id: string | null; home_team_id: string | null; away_team_id: string | null }) =>
+        r.external_id
+          ? [[r.external_id, { home_team_id: r.home_team_id, away_team_id: r.away_team_id }]]
+          : []
+    )
+  );
+
+  const allExtIds = [...slotByExtId.keys()];
+  if (allExtIds.length === 0) {
+    return { updated: 0, teamsAssigned: 0, skipped: 0, errors: [] };
+  }
+
+  // ── Step 2: Fetch from football-data.org using the /matches?ids= endpoint ───
+  // The competition-list endpoint (/competitions/WC/matches?season=2026) returns
+  // knockout fixtures with homeTeam/awayTeam = null even after teams are decided.
+  // The by-IDs endpoint (/matches?ids=...) returns the same score structure but
+  // with knockout teams correctly resolved once the bracket is set.
+  // All 104 WC matches fit comfortably in a single request.
   const res = await fetch(
-    "https://api.football-data.org/v4/competitions/WC/matches?season=2026",
+    `https://api.football-data.org/v4/matches?ids=${allExtIds.join(",")}`,
     { headers: { "X-Auth-Token": apiKey } }
   );
 
@@ -96,20 +121,6 @@ export async function syncResults(admin: SupabaseClient<any>, apiKey: string): P
   const { data: teams } = await admin.from("teams").select("id, code");
   const teamByCode = new Map<string, string>(
     (teams ?? []).map((t: { id: string; code: string }) => [t.code, t.id])
-  );
-
-  // Build our DB team slots map (external_id → {home_team_id, away_team_id})
-  // so we can skip no-op team fills without issuing an UPDATE.
-  const { data: dbSlots } = await admin
-    .from("matches")
-    .select("external_id, home_team_id, away_team_id");
-  const slotByExtId = new Map<string, DbTeamSlot>(
-    (dbSlots ?? []).map(
-      (r: { external_id: string; home_team_id: string | null; away_team_id: string | null }) => [
-        r.external_id,
-        { home_team_id: r.home_team_id, away_team_id: r.away_team_id },
-      ]
-    )
   );
 
   let updated = 0;
