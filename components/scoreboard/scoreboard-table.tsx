@@ -340,7 +340,7 @@ export function ScoreboardTable({
                       </th>
                     ) : null
                   ) : (
-                    nextMatches.map((m) => (
+                    nextMatches.filter((m) => m.roundClosed).map((m) => (
                       <th
                         key={m.id}
                         className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
@@ -564,19 +564,16 @@ export function ScoreboardTable({
                           </td>
                         ) : null
                       ) : (
-                        nextMatches.map((m) => {
-                          const pred = m.roundClosed
-                            ? nextPredByKey[`${row.userId}:${m.id}`]
-                            : undefined;
-                          return (
-                            <td
-                              key={m.id}
-                              className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
-                            >
-                              {pred ? `${pred.home}–${pred.away}` : "—"}
-                            </td>
-                          );
-                        })
+                        nextMatches.filter((m) => m.roundClosed).map((m) => (
+                          <td
+                            key={m.id}
+                            className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
+                          >
+                            {nextPredByKey[`${row.userId}:${m.id}`]
+                              ? `${nextPredByKey[`${row.userId}:${m.id}`]!.home}–${nextPredByKey[`${row.userId}:${m.id}`]!.away}`
+                              : "—"}
+                          </td>
+                        ))
                       )}
 
                       {/* Completion status (data-status-col) */}
