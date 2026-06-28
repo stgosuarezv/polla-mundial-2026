@@ -17,16 +17,18 @@ import { markCalzonesSeen } from "@/lib/actions/calzon";
 // so the outline/silhouette is what's visible). Using shapeFromPath (not
 // shapeFromText/emoji) so the colors array actually tints each particle.
 //
-// Coordinate space ~0-100 wide, ~0-100 tall — canvas-confetti scales the
-// bounding box to fit the particle size automatically.
+// Bezier curves (C/Q) make the shapes read as fabric rather than polygons.
+// Coordinate space ~0-100 — canvas-confetti scales the bounding box to the
+// particle size automatically.
 // ---------------------------------------------------------------------------
 const PATHS = [
-  // Bikini bottom — wide waistband, tapers to a V at the crotch
-  "M 5,0 L 95,0 L 75,55 L 55,80 L 50,100 L 45,80 L 25,55 Z",
-  // Boy shorts — boxy, nearly rectangular, straight leg hem
-  "M 2,0 L 98,0 L 92,65 L 8,65 Z",
-  // Thong — very narrow triangle
-  "M 35,0 L 65,0 L 52,100 L 50,82 L 48,100 Z",
+  // Bikini bottom — wide waistband, hips curve out, leg openings curve inward
+  // to a V at the crotch. The concave leg-opening curves are the key detail.
+  "M 5,0 L 95,0 C 100,15 98,30 90,42 C 82,54 68,65 52,82 L 50,90 L 48,82 C 32,65 18,54 10,42 C 2,30 0,15 5,0 Z",
+  // Boy shorts — wide body, gently curved hem across the bottom leg openings
+  "M 0,0 L 100,0 L 97,50 Q 90,62 75,70 L 25,70 Q 10,62 3,50 Z",
+  // Thong — horizontal waistband bar at top, narrow triangle dropping from centre
+  "M 15,0 L 85,0 L 85,14 L 57,18 L 53,90 L 50,100 L 47,90 L 43,18 L 15,14 Z",
 ];
 
 // Three distinct colors — one per shape type → 3×3 = 9 visible combinations
@@ -83,7 +85,7 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
             shapes: underpants,
             colors: COLORS,
             scalar,
-            ticks: 220,
+            ticks: 300,
           });
         }, delay);
       };
@@ -95,8 +97,8 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
 
     setVisible(true);
 
-    // Auto-dismiss after 4 s
-    const timer = setTimeout(() => setVisible(false), 4000);
+    // Auto-dismiss after 5 s
+    const timer = setTimeout(() => setVisible(false), 5000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // fire once on mount — props are stable server-computed values
