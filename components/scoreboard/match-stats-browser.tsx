@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -58,6 +58,16 @@ export function MatchStatsBrowser({
   if (groups.length === 0) return null;
 
   const selected = groups.find((g) => g.id === selectedId) ?? groups[0]!;
+  const currentIndex = groups.findIndex((g) => g.id === selectedId);
+  const canPrev = currentIndex > 0;
+  const canNext = currentIndex < groups.length - 1;
+
+  function handlePrev() {
+    if (canPrev) setSelectedId(groups[currentIndex - 1]!.id);
+  }
+  function handleNext() {
+    if (canNext) setSelectedId(groups[currentIndex + 1]!.id);
+  }
 
   return (
     <div className="space-y-2">
@@ -65,9 +75,19 @@ export function MatchStatsBrowser({
         {t("matchStatsTitle")}
       </h2>
 
-      {/* Centered dropdown — always rendered, even with one group, so the title
-          always has a visual anchor and future matches slot in automatically. */}
-      <div className="flex justify-center">
+      {/* Centered row: prev arrow · dropdown · next arrow */}
+      <div className="flex items-center justify-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={handlePrev}
+          disabled={!canPrev}
+          aria-label="Previous match group"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+
         <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5">
@@ -93,6 +113,17 @@ export function MatchStatsBrowser({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={handleNext}
+          disabled={!canNext}
+          aria-label="Next match group"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
 
       <MatchStatsGrid items={selected.items} />

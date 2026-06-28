@@ -513,6 +513,20 @@ export default async function ScoreboardPage({ params }: Props) {
   const lastMatchPts: Record<string, number> = Object.fromEntries(lastMatchPtsMap);
   const showLastMatch = lastMatchIds.size > 0;
 
+  // Rank before the last batch of matches — used for movement arrows in the
+  // normal table. Only computed when there were matches before the last batch.
+  const prevRankByUser: Record<string, number> = {};
+  if (showLastMatch && finishedWithStage.length > lastMatchIds.size) {
+    const nonLastPreds = predictions.filter((p) => !lastMatchIds.has(p.matchId));
+    const nonLastMatches = finishedWithStage.filter(
+      (m) => !lastMatchIds.has(m.id)
+    );
+    const prevRows = computeLeaderboard(users, nonLastMatches, nonLastPreds);
+    for (const r of prevRows) {
+      prevRankByUser[r.userId] = r.rank;
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -566,6 +580,7 @@ export default async function ScoreboardPage({ params }: Props) {
           prizes={PRIZES_CLP}
           lastMatchPts={lastMatchPts}
           showLastMatch={showLastMatch}
+          prevRankByUser={prevRankByUser}
           nextMatches={nextMatches}
           nextPredByKey={nextPredByKey}
           completionByUser={completionByUser}
