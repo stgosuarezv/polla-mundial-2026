@@ -47,7 +47,7 @@ export function ScoreInput({
           type="button"
           tabIndex={-1}
           onClick={() => step(-1)}
-          disabled={(num ?? 0) <= 0}
+          disabled={num === 0}
           className="flex h-4 w-5 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-30"
           aria-label="Decrease"
         >
