@@ -30,45 +30,41 @@ export default async function PredictionsPage({ params }: Props) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  // Fetch all non-podio rounds with their matches and teams
-  const { data: rounds } = await supabase
-    .from("rounds")
-    .select(
-      `id, stage, name_key, order_index, lock_time,
-       matches (
-         id, kickoff_at, venue, status,
-         home_score, away_score, penalty_winner_team_id, advancing_team_id,
-         home_team:home_team_id ( id, code, name_en, name_es, name_ko, flag_url ),
-         away_team:away_team_id ( id, code, name_en, name_es, name_ko, flag_url )
-       )`
-    )
-    .neq("stage", "podio")
-    .order("order_index", { ascending: true });
-
   // Reads from the my_predictions view (security_invoker, filters by auth.uid())
   // so this query can NEVER return another user's rows — even though the base
   // table's RLS exposes others' rows for locked rounds. See CLAUDE.md "User-data
   // queries". The explicit .eq filter is redundant with the view but kept as a
   // belt that signals intent.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Batch 1: rounds, auth user, and profiles are all independent
+  const [
+    { data: rounds },
+    {
+      data: { user },
+    },
+    { data: allProfiles },
+  ] = await Promise.all([
+    supabase
+      .from("rounds")
+      .select(
+        `id, stage, name_key, order_index, lock_time,
+         matches (
+           id, kickoff_at, venue, status,
+           home_score, away_score, penalty_winner_team_id, advancing_team_id,
+           home_team:home_team_id ( id, code, name_en, name_es, name_ko, flag_url ),
+           away_team:away_team_id ( id, code, name_en, name_es, name_ko, flag_url )
+         )`
+      )
+      .neq("stage", "podio")
+      .order("order_index", { ascending: true }),
+    supabase.auth.getUser(),
+    supabase.from("profiles").select("id, display_name"),
+  ]);
 
   // Middleware guarantees auth before this page renders. A null user here means
   // the session cookie propagation failed — redirect to login rather than
   // silently rendering blank cards (which looks like data loss to the player).
   if (!user) redirect(`/${locale}/login`);
-
-  const { data: predictions } = await supabase
-    .from("my_predictions")
-    .select(
-      "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
-    )
-    .eq("user_id", user.id);
-
-  const predByMatchId = new Map(
-    (predictions ?? []).map((p) => [p.match_id, p])
-  );
 
   // ── Prediction stats for locked matches ─────────────────────────────────────
   // Collect all match ids from locked rounds — RLS allows viewing other players'
@@ -79,18 +75,24 @@ export default async function PredictionsPage({ params }: Props) {
       : []
   );
 
-  // Fetch all profiles for display names (needed by loadMatchSummaries)
-  const { data: allProfiles } = await supabase
-    .from("profiles")
-    .select("id, display_name");
   const nameByUserId = new Map(
     (allProfiles ?? []).map((p) => [p.id, p.display_name as string])
   );
 
-  const summaryByMatchId = await loadMatchSummaries(
-    supabase,
-    lockedMatchIds,
-    nameByUserId
+  // Batch 2: predictions (needs user.id) and summaries (needs lockedMatchIds +
+  // nameByUserId) have no dependency on each other
+  const [{ data: predictions }, summaryByMatchId] = await Promise.all([
+    supabase
+      .from("my_predictions")
+      .select(
+        "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
+      )
+      .eq("user_id", user.id),
+    loadMatchSummaries(supabase, lockedMatchIds, nameByUserId),
+  ]);
+
+  const predByMatchId = new Map(
+    (predictions ?? []).map((p) => [p.match_id, p])
   );
 
   // Find the next round to lock (countdown target)

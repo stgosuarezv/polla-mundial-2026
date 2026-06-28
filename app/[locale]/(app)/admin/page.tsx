@@ -24,84 +24,91 @@ export default async function AdminPage({ params, searchParams }: Props) {
   const t = await getTranslations("admin");
   const admin = createAdminClient();
 
-  // ── Invitations ──────────────────────────────────────────────────────────────
-  const { data: invitations } = await admin
-    .from("invitations")
-    .select("id, email, accepted_at, expires_at, created_at")
-    .order("created_at", { ascending: false });
-
-  // ── Matches (with teams + round) ─────────────────────────────────────────────
-  const { data: rounds } = await admin
-    .from("rounds")
-    .select(
-      `id, name_key, order_index, stage,
-       matches (
-         id, status, kickoff_at,
-         home_score, away_score, penalty_winner_team_id, advancing_team_id,
-         home_team:home_team_id ( id, code, name_en ),
-         away_team:away_team_id ( id, code, name_en )
-       )`
-    )
-    .neq("stage", "podio")
-    .order("order_index", { ascending: true });
-
-  // ── Users ────────────────────────────────────────────────────────────────────
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, display_name, is_admin")
-    .order("display_name", { ascending: true });
-
-  // ── Audit log (last 50) ───────────────────────────────────────────────────────
-  const { data: auditEntries } = await admin
-    .from("match_audit")
-    .select(
-      `id, changed_at, old_value, new_value,
-       match:match_id (
-         home_team:home_team_id ( code ),
-         away_team:away_team_id ( code )
-       ),
-       changer:changed_by ( display_name )`
-    )
-    .order("changed_at", { ascending: false })
-    .limit(50);
-
-  const { data: roundAuditEntries } = await admin
-    .from("round_audit")
-    .select(
-      `id, changed_at, old_value, new_value,
-       round:round_id ( name_key ),
-       changer:changed_by ( display_name )`
-    )
-    .order("changed_at", { ascending: false })
-    .limit(50);
-
-  // ── Rounds for lock-time editor ───────────────────────────────────────────────
-  const { data: roundsForLock } = await admin
-    .from("rounds")
-    .select("id, name_key, order_index, stage, lock_time, matches(kickoff_at)")
-    .order("order_index", { ascending: true });
-
-  // ── Digest section data ──────────────────────────────────────────────────────
-  const { data: appSettings } = await admin
-    .from("app_settings")
-    .select("digest_mode, sync_mode, digest_layout")
-    .eq("id", 1)
-    .single();
-
-  const { data: digestRounds } = await admin
-    .from("rounds")
-    .select("id, name_key, stage, lock_time, snapshot_sent_at")
-    .order("order_index", { ascending: true });
-
-  const { data: recentSnapshotsRaw } = await admin
-    .from("rounds")
-    .select(
-      `id, name_key, snapshot_sent_at, snapshot_sent_by,
-       sent_by:snapshot_sent_by ( display_name )`
-    )
-    .not("snapshot_sent_at", "is", null)
-    .order("snapshot_sent_at", { ascending: false })
-    .limit(20);
+  // All admin reads are independent — fetch in parallel
+  const [
+    { data: invitations },
+    { data: rounds },
+    { data: profiles },
+    { data: auditEntries },
+    { data: roundAuditEntries },
+    { data: roundsForLock },
+    { data: appSettings },
+    { data: digestRounds },
+    { data: recentSnapshotsRaw },
+  ] = await Promise.all([
+    // ── Invitations ────────────────────────────────────────────────────────────
+    admin
+      .from("invitations")
+      .select("id, email, accepted_at, expires_at, created_at")
+      .order("created_at", { ascending: false }),
+    // ── Matches (with teams + round) ───────────────────────────────────────────
+    admin
+      .from("rounds")
+      .select(
+        `id, name_key, order_index, stage,
+         matches (
+           id, status, kickoff_at,
+           home_score, away_score, penalty_winner_team_id, advancing_team_id,
+           home_team:home_team_id ( id, code, name_en ),
+           away_team:away_team_id ( id, code, name_en )
+         )`
+      )
+      .neq("stage", "podio")
+      .order("order_index", { ascending: true }),
+    // ── Users ──────────────────────────────────────────────────────────────────
+    admin
+      .from("profiles")
+      .select("id, display_name, is_admin")
+      .order("display_name", { ascending: true }),
+    // ── Audit log (last 50) ────────────────────────────────────────────────────
+    admin
+      .from("match_audit")
+      .select(
+        `id, changed_at, old_value, new_value,
+         match:match_id (
+           home_team:home_team_id ( code ),
+           away_team:away_team_id ( code )
+         ),
+         changer:changed_by ( display_name )`
+      )
+      .order("changed_at", { ascending: false })
+      .limit(50),
+    admin
+      .from("round_audit")
+      .select(
+        `id, changed_at, old_value, new_value,
+         round:round_id ( name_key ),
+         changer:changed_by ( display_name )`
+      )
+      .order("changed_at", { ascending: false })
+      .limit(50),
+    // ── Rounds for lock-time editor ────────────────────────────────────────────
+    admin
+      .from("rounds")
+      .select("id, name_key, order_index, stage, lock_time, matches(kickoff_at)")
+      .order("order_index", { ascending: true }),
+    // ── App settings ──────────────────────────────────────────────────────────
+    admin
+      .from("app_settings")
+      .select("digest_mode, sync_mode, digest_layout")
+      .eq("id", 1)
+      .single(),
+    // ── Digest rounds ─────────────────────────────────────────────────────────
+    admin
+      .from("rounds")
+      .select("id, name_key, stage, lock_time, snapshot_sent_at")
+      .order("order_index", { ascending: true }),
+    // ── Recent snapshots ──────────────────────────────────────────────────────
+    admin
+      .from("rounds")
+      .select(
+        `id, name_key, snapshot_sent_at, snapshot_sent_by,
+         sent_by:snapshot_sent_by ( display_name )`
+      )
+      .not("snapshot_sent_at", "is", null)
+      .order("snapshot_sent_at", { ascending: false })
+      .limit(20),
+  ]);
   const recentSnapshots = (recentSnapshotsRaw ?? []).map((r) => {
     const sentBy = Array.isArray(r.sent_by) ? r.sent_by[0] : r.sent_by;
     return {

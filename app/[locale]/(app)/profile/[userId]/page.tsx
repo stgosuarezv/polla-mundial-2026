@@ -28,27 +28,109 @@ export default async function ProfilePage({ params }: Props) {
   const supabase = await createClient();
   const now = new Date();
 
-  // Target user's profile (include display_name_changed_at for editor-mode gating)
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, display_name, display_name_changed_at")
-    .eq("id", userId)
-    .single();
+  const admin = createAdminClient();
+
+  // Batch 1: profile, viewer identity, email lookup, rounds, matches, podio
+  // data — all independent of each other
+  const [
+    { data: profile },
+    {
+      data: { user: viewer },
+    },
+    { data: authUser },
+    { data: roundsData },
+    { data: matchesData },
+    { data: podioRound },
+    { data: podioPred },
+  ] = await Promise.all([
+    // Target user's profile (include display_name_changed_at for editor-mode gating)
+    supabase
+      .from("profiles")
+      .select("id, display_name, display_name_changed_at")
+      .eq("id", userId)
+      .single(),
+    // Viewer identity — needed to decide which edit mode to show
+    supabase.auth.getUser(),
+    // Target user's email lives on auth.users, not profiles — read via admin client.
+    admin.auth.admin.getUserById(userId),
+    // All non-podio rounds
+    supabase
+      .from("rounds")
+      .select("id, stage, name_key, order_index, lock_time")
+      .neq("stage", "podio")
+      .order("order_index", { ascending: true }),
+    // All matches with teams
+    supabase
+      .from("matches")
+      .select(
+        `id, round_id, kickoff_at, status, home_score, away_score,
+         home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
+         away_team:away_team_id ( id, code, name_en, name_es, name_ko )`
+      )
+      .order("kickoff_at", { ascending: true }),
+    // Podio round
+    supabase.from("rounds").select("lock_time").eq("stage", "podio").single(),
+    // Podio prediction (RLS: own always visible; others only after lock)
+    supabase
+      .from("podio_predictions")
+      .select(
+        `points_awarded,
+         champion:teams!champion_team_id ( code, name_en, name_es, name_ko ),
+         runner_up:teams!runner_up_team_id ( code, name_en, name_es, name_ko ),
+         third_place:teams!third_place_team_id ( code, name_en, name_es, name_ko )`
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
 
   if (!profile) notFound();
 
-  // Viewer identity — needed to decide which edit mode to show
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const email = authUser?.user?.email ?? null;
 
-  const { data: viewerProfile } = viewer
-    ? await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", viewer.id)
-        .single()
-    : { data: null };
+  const rounds = roundsData ?? [];
+  const allMatches = matchesData ?? [];
+
+  // Classify rounds
+  const unlockedRounds = rounds.filter((r) => new Date(r.lock_time) > now);
+  const currentRoundId =
+    unlockedRounds.length > 0 ? unlockedRounds[0]!.id : null;
+
+  // Predictions for locked rounds (RLS allows seeing others' predictions after lock)
+  const lockedMatchIds = allMatches
+    .filter((m) =>
+      rounds.some((r) => r.id === m.round_id && new Date(r.lock_time) <= now)
+    )
+    .map((m) => m.id);
+
+  const podioLocked = podioRound
+    ? new Date(podioRound.lock_time) <= now
+    : false;
+
+  // Batch 2: viewerProfile (needs viewer.id) and predsData (needs lockedMatchIds)
+  // are independent of each other
+  const [{ data: viewerProfile }, { data: predsData }] = await Promise.all([
+    viewer
+      ? supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", viewer.id)
+          .single()
+      : Promise.resolve({ data: null }),
+    lockedMatchIds.length
+      ? supabase
+          .from("predictions")
+          .select("match_id, home_score_pred, away_score_pred, points_awarded")
+          .eq("user_id", userId)
+          .in("match_id", lockedMatchIds)
+      : Promise.resolve({
+          data: [] as {
+            match_id: string;
+            home_score_pred: number;
+            away_score_pred: number;
+            points_awarded: number | null;
+          }[],
+        }),
+  ]);
 
   const isAdmin = viewerProfile?.is_admin ?? false;
   const isOwnProfile = viewer?.id === userId;
@@ -60,82 +142,9 @@ export default async function ProfilePage({ params }: Props) {
       ? "self-once"
       : "none";
 
-  // Target user's email lives on auth.users, not profiles — read via admin client.
-  const admin = createAdminClient();
-  const { data: authUser } = await admin.auth.admin.getUserById(userId);
-  const email = authUser?.user?.email ?? null;
-
-  // All non-podio rounds
-  const { data: roundsData } = await supabase
-    .from("rounds")
-    .select("id, stage, name_key, order_index, lock_time")
-    .neq("stage", "podio")
-    .order("order_index", { ascending: true });
-
-  const rounds = roundsData ?? [];
-
-  // Classify rounds
-  const unlockedRounds = rounds.filter((r) => new Date(r.lock_time) > now);
-  const currentRoundId =
-    unlockedRounds.length > 0 ? unlockedRounds[0]!.id : null;
-
-  // All matches with teams
-  const { data: matchesData } = await supabase
-    .from("matches")
-    .select(
-      `id, round_id, kickoff_at, status, home_score, away_score,
-       home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
-       away_team:away_team_id ( id, code, name_en, name_es, name_ko )`
-    )
-    .order("kickoff_at", { ascending: true });
-
-  const allMatches = matchesData ?? [];
-
-  // Predictions for locked rounds (RLS allows seeing others' predictions after lock)
-  const lockedMatchIds = allMatches
-    .filter((m) =>
-      rounds.some(
-        (r) => r.id === m.round_id && new Date(r.lock_time) <= now
-      )
-    )
-    .map((m) => m.id);
-
-  const { data: predsData } = lockedMatchIds.length
-    ? await supabase
-        .from("predictions")
-        .select(
-          "match_id, home_score_pred, away_score_pred, points_awarded"
-        )
-        .eq("user_id", userId)
-        .in("match_id", lockedMatchIds)
-    : { data: [] };
-
   const predMap = new Map(
     (predsData ?? []).map((p) => [p.match_id, p])
   );
-
-  // Podio round
-  const { data: podioRound } = await supabase
-    .from("rounds")
-    .select("lock_time")
-    .eq("stage", "podio")
-    .single();
-
-  const podioLocked = podioRound
-    ? new Date(podioRound.lock_time) <= now
-    : false;
-
-  // Podio prediction (RLS: own always visible; others only after lock)
-  const { data: podioPred } = await supabase
-    .from("podio_predictions")
-    .select(
-      `points_awarded,
-       champion:teams!champion_team_id ( code, name_en, name_es, name_ko ),
-       runner_up:teams!runner_up_team_id ( code, name_en, name_es, name_ko ),
-       third_place:teams!third_place_team_id ( code, name_en, name_es, name_ko )`
-    )
-    .eq("user_id", userId)
-    .maybeSingle();
 
   const matchPoints = (predsData ?? []).reduce(
     (sum, p) => sum + (p.points_awarded ?? 0),
