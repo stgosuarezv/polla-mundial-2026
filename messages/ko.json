@@ -328,7 +328,11 @@
     "selectTeam": "팀 선택",
     "mustBeDistinct": "세 팀이 달라야 합니다.",
     "errorSaving": "저장 오류. 다시 시도해 주세요.",
-    "pts": "점"
+    "pts": "점",
+    "statsTitle": "포디엄 통계",
+    "statsEntries": "{count, plural, other {# 개 포디엄 제출됨}}",
+    "statsOnMostPodiums": "가장 많이 등장한 팀",
+    "statsMostPopular": "가장 인기 있는 포디엄"
   },
   "fun": {
     "badge": "재미로",
