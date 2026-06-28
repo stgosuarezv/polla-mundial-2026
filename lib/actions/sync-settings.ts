@@ -115,12 +115,10 @@ export async function syncAndRescoreAsCron(): Promise<
   // 2. Smart-skip: proceed when EITHER:
   //    a) A match kicked off ≥ 105 minutes ago and isn't finished yet (live
   //       score polling window — can't end before kickoff + 1h47).
-  //    b) A TBD-team knockout match kicks off within 72 hours — we need to
-  //       fill in home_team_id / away_team_id before users can enter their
-  //       prediction, and football-data.org publishes bracket assignments in
-  //       the days before each round.
-  const TEAM_FILL_WINDOW_MS = 72 * 60 * 60 * 1000;
-
+  //    b) Any non-finished match still has a null team slot — football-data.org
+  //       publishes bracket assignments gradually and we want to fill them as
+  //       soon as the API has the data, regardless of how far away the match is.
+  //       No kickoff window: the API call is one request either way.
   const [{ count: liveCount }, { count: teamFillCount }] = await Promise.all([
     admin
       .from("matches")
@@ -130,7 +128,6 @@ export async function syncAndRescoreAsCron(): Promise<
     admin
       .from("matches")
       .select("id", { count: "exact", head: true })
-      .lt("kickoff_at", new Date(Date.now() + TEAM_FILL_WINDOW_MS).toISOString())
       .neq("status", "finished")
       .or("home_team_id.is.null,away_team_id.is.null"),
   ]);
