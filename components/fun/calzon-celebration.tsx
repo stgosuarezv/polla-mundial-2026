@@ -13,26 +13,42 @@ import confetti from "canvas-confetti";
 import { markCalzonesSeen } from "@/lib/actions/calzon";
 
 // ---------------------------------------------------------------------------
-// Three underwear silhouettes as SVG paths (filled solid by canvas-confetti,
-// so the outline/silhouette is what's visible). Using shapeFromPath (not
-// shapeFromText/emoji) so the colors array actually tints each particle.
+// Five underwear silhouettes — all use bezier curves so they read as fabric
+// rather than polygons. Each has a distinct aspect ratio and silhouette.
 //
-// Bezier curves (C/Q) make the shapes read as fabric rather than polygons.
-// Coordinate space ~0-100 — canvas-confetti scales the bounding box to the
-// particle size automatically.
+// shapeFromPath fills the closed path with a solid color, so the OUTLINE
+// is what carries the "type" — curved leg openings, waistband height,
+// coverage width, and crotch depth all differ between types.
+//
+// Coordinate space is free-form; canvas-confetti normalises to the bounding
+// box automatically, so the proportions (wide/narrow, tall/short) persist.
 // ---------------------------------------------------------------------------
 const PATHS = [
-  // Bikini bottom — wide waistband, hips curve out, leg openings curve inward
-  // to a V at the crotch. The concave leg-opening curves are the key detail.
-  "M 5,0 L 95,0 C 100,15 98,30 90,42 C 82,54 68,65 52,82 L 50,90 L 48,82 C 32,65 18,54 10,42 C 2,30 0,15 5,0 Z",
-  // Boy shorts — wide body, gently curved hem across the bottom leg openings
-  "M 0,0 L 100,0 L 97,50 Q 90,62 75,70 L 25,70 Q 10,62 3,50 Z",
-  // Thong — horizontal waistband bar at top, narrow triangle dropping from centre
-  "M 15,0 L 85,0 L 85,14 L 57,18 L 53,90 L 50,100 L 47,90 L 43,18 L 15,14 Z",
+  // Full brief — tall, wide, full coverage. Sides stay wide before curving
+  // gently inward with a low, modest leg opening (almost a U not a V).
+  "M 2,0 L 98,0 C 104,18 103,44 97,60 C 90,74 74,84 55,90 L 50,93 L 45,90 C 26,84 10,74 3,60 C -3,44 -4,18 2,0 Z",
+
+  // Bikini — hip-width waistband, sides sweep out then cut back aggressively
+  // with a clear high leg opening that creates the classic bikini V-crotch.
+  "M 16,0 L 84,0 C 97,6 100,22 94,38 C 86,52 70,64 55,78 L 50,86 L 45,78 C 30,64 14,52 6,38 C 0,22 3,6 16,0 Z",
+
+  // Boy shorts — widest shape, shortest length. Nearly square, curved shorts
+  // hem across the full bottom rather than a V crotch.
+  "M 0,0 L 100,0 L 98,52 C 92,66 76,76 58,80 L 42,80 C 24,76 8,66 2,52 Z",
+
+  // Thong — wide waistband bar at top, then side strings taper quickly to a
+  // very narrow centre triangle. Clearly T-shaped vs all the others.
+  "M 0,2 L 100,2 L 100,16 L 57,22 L 53,88 L 50,100 L 47,88 L 43,22 L 0,16 Z",
+
+  // Brazilian / cheeky — similar waistband to bikini but the hip curves are
+  // dramatically exaggerated (extend to 112) giving maximum hip emphasis and
+  // the very high leg cut that exposes the cheek.
+  "M 10,0 L 90,0 C 106,8 112,26 102,42 C 92,56 76,64 57,76 L 50,84 L 43,76 C 24,64 8,56 -2,42 C -12,26 -6,8 10,0 Z",
 ];
 
-// Three distinct colors — one per shape type → 3×3 = 9 visible combinations
-const COLORS = ["#FF69B4", "#9B59B6", "#FF2525"];
+// Three distinct colors — randomly paired with the five shapes by canvas-
+// confetti, giving 5×3 = 15 visible combinations per burst.
+const COLORS = ["#FF4DA6", "#8B2FC9", "#FF3131"];
 
 // ---------------------------------------------------------------------------
 
