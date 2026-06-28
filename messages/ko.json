@@ -73,7 +73,8 @@
     "saveAll": "모두 저장",
     "stats": "통계",
     "expandAll": "모두 펼치기",
-    "collapseAll": "모두 접기"
+    "collapseAll": "모두 접기",
+    "extraTimeNote": "16강부터는 경기가 연장전으로 이어지는 경우, 예측은 90분이 아닌 120분 전체 결과를 기준으로 합니다."
   },
   "scoreboard": {
     "title": "순위표",

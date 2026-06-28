@@ -7,6 +7,7 @@ import { CollapsibleRound } from "@/components/predictions/collapsible-round";
 import { RoundControls } from "@/components/predictions/round-controls";
 import { PredictionsForm } from "@/components/predictions/predictions-form";
 import { Countdown } from "@/components/countdown";
+import { ExtraTimeBanner } from "@/components/predictions/extra-time-banner";
 
 interface Props {
   params: Promise<{ locale: string }>;
@@ -151,6 +152,9 @@ export default async function PredictionsPage({ params }: Props) {
             label={t("closesIn")}
           />
         )}
+
+        {/* Extra-time scoring note */}
+        <ExtraTimeBanner message={t("extraTimeNote")} />
 
         {/* Expand / collapse all + open-state persistence */}
         {roundsList.length > 0 && <RoundControls labels={tControls} />}
