@@ -358,13 +358,13 @@ export function ScoreboardTable({
                   )}
                   <th
                     data-status-col=""
-                    className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                    className="w-14 px-2 py-2 text-center font-medium text-muted-foreground leading-tight"
                   >
                     {t("completion")}
                   </th>
                   <th
                     data-status-col=""
-                    className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                    className="w-12 px-2 py-2 text-center font-medium text-muted-foreground leading-tight"
                   >
                     {t("podio")}
                   </th>
@@ -594,41 +594,30 @@ export function ScoreboardTable({
                       {/* Completion status (data-status-col) */}
                       <td
                         data-status-col=""
-                        className="px-3 py-2.5 text-center"
+                        className="px-2 py-2.5 text-center"
                       >
                         {(() => {
                           const c = completionByUser[row.userId];
-                          if (!c || c.total === 0)
-                            return (
-                              <span className="text-xs text-muted-foreground">
-                                —
-                              </span>
-                            );
-                          const state = statusOf(c.made, c.total);
-                          return (
-                            <StatusBadge
-                              state={state}
-                              label={t(STATUS_KEY[state])}
-                            />
-                          );
+                          if (!c || c.total === 0 || c.made === 0)
+                            return <span className="text-xs text-muted-foreground">—</span>;
+                          if (c.made >= c.total)
+                            return <span className="text-xs font-medium" style={{ color: "#16a34a" }}>✓</span>;
+                          return <span className="text-xs font-medium" style={{ color: "#d97706" }}>{c.made}/{c.total}</span>;
                         })()}
                       </td>
 
                       {/* Podio status (data-status-col) */}
                       <td
                         data-status-col=""
-                        className="px-3 py-2.5 text-center"
+                        className="px-2 py-2.5 text-center"
                       >
                         {(() => {
-                          const c = completionByUser[row.userId];
-                          const slots = c?.podioSlots ?? 0;
-                          const state = statusOf(slots, 3);
-                          return (
-                            <StatusBadge
-                              state={state}
-                              label={t(STATUS_KEY[state])}
-                            />
-                          );
+                          const slots = completionByUser[row.userId]?.podioSlots ?? 0;
+                          if (slots === 0)
+                            return <span className="text-xs text-muted-foreground">—</span>;
+                          if (slots >= 3)
+                            return <span className="text-xs font-medium" style={{ color: "#16a34a" }}>✓</span>;
+                          return <span className="text-xs font-medium" style={{ color: "#d97706" }}>{slots}/3</span>;
                         })()}
                       </td>
                     </tr>
