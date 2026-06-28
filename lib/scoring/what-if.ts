@@ -17,6 +17,9 @@ import {
 
 export interface WhatIfMatch {
   id: string;
+  roundId: string;
+  roundKey: string;        // translation key without "rounds." prefix, e.g. "group_1"
+  roundOrderIndex: number;
   stage: Stage;
   status: string; // "finished" | "scheduled" | "in_progress"
   homeCode: string;

@@ -31,6 +31,9 @@ function makeRow(
 function groupMatch(id: string, status: "finished" | "scheduled" = "scheduled"): WhatIfMatch {
   return {
     id,
+    roundId: "round-group",
+    roundKey: "group_1",
+    roundOrderIndex: 1,
     stage: "group",
     status,
     homeCode: "AAA",
@@ -55,6 +58,9 @@ function knockoutMatch(
 ): WhatIfMatch {
   return {
     id,
+    roundId: "round-knockout",
+    roundKey: "knockout_r16",
+    roundOrderIndex: 4,
     stage: "knockout",
     status,
     homeCode: "HOM",

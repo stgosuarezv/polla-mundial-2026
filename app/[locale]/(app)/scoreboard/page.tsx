@@ -256,7 +256,7 @@ export default async function ScoreboardPage({ params }: Props) {
   const nextPredsPromise = closedNextIds.length
     ? supabase
         .from("predictions")
-        .select("user_id, match_id, home_score_pred, away_score_pred")
+        .select("user_id, match_id, home_score_pred, away_score_pred, penalty_winner_team_id")
         .in("match_id", closedNextIds)
     : Promise.resolve({
         data: [] as {
@@ -264,6 +264,7 @@ export default async function ScoreboardPage({ params }: Props) {
           match_id: string;
           home_score_pred: number;
           away_score_pred: number;
+          penalty_winner_team_id: string | null;
         }[],
       });
 
@@ -501,6 +502,9 @@ export default async function ScoreboardPage({ params }: Props) {
     const isFinished = m.status === "finished";
     return {
       id: m.id,
+      roundId: round?.id ?? "",
+      roundKey: (round?.name_key ?? "").replace("rounds.", ""),
+      roundOrderIndex: round?.order_index ?? 0,
       stage,
       status: m.status,
       homeCode: home?.code ?? "TBD",
@@ -526,11 +530,15 @@ export default async function ScoreboardPage({ params }: Props) {
 
   // ── Next-match table-column preview ─────────────────────────────────────────
   // Serialize as plain Records for the client component (no Maps across boundary)
-  const nextPredByKey: Record<string, { home: number; away: number }> = {};
+  const nextPredByKey: Record<
+    string,
+    { home: number; away: number; penaltyWinnerId: string | null }
+  > = {};
   for (const p of nextPreds ?? []) {
     nextPredByKey[`${p.user_id}:${p.match_id}`] = {
       home: p.home_score_pred,
       away: p.away_score_pred,
+      penaltyWinnerId: p.penalty_winner_team_id ?? null,
     };
   }
 
@@ -538,6 +546,8 @@ export default async function ScoreboardPage({ params }: Props) {
     id: m.id,
     homeCode: teamCode(m.home),
     awayCode: teamCode(m.away),
+    homeTeamId: m.home?.id ?? null,
+    awayTeamId: m.away?.id ?? null,
     kickoffLabel: formatKickoffCL(m.kickoff_at, locale),
     roundClosed: m.roundClosed,
   }));

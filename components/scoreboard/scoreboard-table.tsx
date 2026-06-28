@@ -89,6 +89,8 @@ export interface NextMatchCol {
   id: string;
   homeCode: string;
   awayCode: string;
+  homeTeamId: string | null;
+  awayTeamId: string | null;
   kickoffLabel: string;
   roundClosed: boolean;
 }
@@ -105,7 +107,7 @@ export interface ScoreboardTableProps {
   prevRankByUser: Record<string, number>;
   // Next-match preview columns
   nextMatches: NextMatchCol[];
-  nextPredByKey: Record<string, { home: number; away: number }>;
+  nextPredByKey: Record<string, { home: number; away: number; penaltyWinnerId: string | null }>;
   // Completion / podio status columns
   completionByUser: Record<string, { made: number; total: number; podioSlots: number }>;
   // What-if data (empty arrays/objects → no simulator shown)
@@ -557,9 +559,14 @@ export function ScoreboardTable({
                                 predByKey[
                                   `${row.userId}:${nextUnsimulatedMatch.id}`
                                 ];
-                              return pred
-                                ? `${pred.home}–${pred.away}`
-                                : "—";
+                              if (!pred) return "—";
+                              const score = `${pred.home}–${pred.away}`;
+                              const winnerCode = pred.penaltyWinnerId
+                                ? pred.penaltyWinnerId === nextUnsimulatedMatch.homeTeamId
+                                  ? nextUnsimulatedMatch.homeCode
+                                  : nextUnsimulatedMatch.awayCode
+                                : null;
+                              return winnerCode ? `${score} (${winnerCode})` : score;
                             })()}
                           </td>
                         ) : null
@@ -569,9 +576,17 @@ export function ScoreboardTable({
                             key={m.id}
                             className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
                           >
-                            {nextPredByKey[`${row.userId}:${m.id}`]
-                              ? `${nextPredByKey[`${row.userId}:${m.id}`]!.home}–${nextPredByKey[`${row.userId}:${m.id}`]!.away}`
-                              : "—"}
+                            {(() => {
+                              const pred = nextPredByKey[`${row.userId}:${m.id}`];
+                              if (!pred) return "—";
+                              const score = `${pred.home}–${pred.away}`;
+                              const winnerCode = pred.penaltyWinnerId
+                                ? pred.penaltyWinnerId === m.homeTeamId
+                                  ? m.homeCode
+                                  : m.awayCode
+                                : null;
+                              return winnerCode ? `${score} (${winnerCode})` : score;
+                            })()}
                           </td>
                         ))
                       )}
