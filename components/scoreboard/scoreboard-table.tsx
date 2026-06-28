@@ -101,6 +101,8 @@ export interface ScoreboardTableProps {
   // Last-match column
   lastMatchPts: Record<string, number>;
   showLastMatch: boolean;
+  // Rank before the last batch of matches (for movement arrows in normal mode)
+  prevRankByUser: Record<string, number>;
   // Next-match preview columns
   nextMatches: NextMatchCol[];
   nextPredByKey: Record<string, { home: number; away: number }>;
@@ -125,6 +127,7 @@ export function ScoreboardTable({
   prizes,
   lastMatchPts,
   showLastMatch,
+  prevRankByUser,
   nextMatches,
   nextPredByKey,
   completionByUser,
@@ -191,6 +194,18 @@ export function ScoreboardTable({
   );
 
   const hasWhatIf = whatIfMatches.length > 0;
+
+  // Show real rank-change arrows in normal mode when we have previous-rank data
+  const hasPrevRanks = showLastMatch && Object.keys(prevRankByUser).length > 0;
+
+  // When simulating, show the first what-if match whose home+away inputs are
+  // still blank — that's the "next match to simulate" from the player's POV.
+  const nextUnsimulatedMatch = simulating
+    ? (whatIfMatches.find((m) => {
+        const inp = inputs[m.id];
+        return inp?.home === "" && inp?.away === "";
+      }) ?? null)
+    : null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -286,7 +301,8 @@ export function ScoreboardTable({
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">
                     {t("rank")}
                   </th>
-                  {simulating && (
+                  {/* Movement arrow column — sim mode uses projected rank, normal mode uses prevRank */}
+                  {(simulating || hasPrevRanks) && (
                     <th className="px-2 py-2 text-center font-medium text-muted-foreground w-10" />
                   )}
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">
@@ -318,19 +334,32 @@ export function ScoreboardTable({
                       <div>{t("lastMatchLabel")}</div>
                     </th>
                   )}
-                  {nextMatches.map((m) => (
-                    <th
-                      key={m.id}
-                      className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
-                    >
-                      <div className="text-xs">
-                        {m.homeCode}–{m.awayCode}
-                      </div>
-                      <div className="text-[10px] font-normal text-muted-foreground/70">
-                        {m.kickoffLabel}
-                      </div>
-                    </th>
-                  ))}
+                  {simulating ? (
+                    nextUnsimulatedMatch ? (
+                      <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                        <div className="text-xs">
+                          {nextUnsimulatedMatch.homeCode}–{nextUnsimulatedMatch.awayCode}
+                        </div>
+                        <div className="text-[10px] font-normal text-muted-foreground/70">
+                          {nextUnsimulatedMatch.kickoffLabel}
+                        </div>
+                      </th>
+                    ) : null
+                  ) : (
+                    nextMatches.map((m) => (
+                      <th
+                        key={m.id}
+                        className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        <div className="text-xs">
+                          {m.homeCode}–{m.awayCode}
+                        </div>
+                        <div className="text-[10px] font-normal text-muted-foreground/70">
+                          {m.kickoffLabel}
+                        </div>
+                      </th>
+                    ))
+                  )}
                   <th
                     data-status-col=""
                     className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
@@ -360,6 +389,10 @@ export function ScoreboardTable({
                   const rankDelta = baseRank - row.rank; // positive = moved up
                   const gain = gainByUserId.get(row.userId) ?? 0;
 
+                  // Normal-mode rank-change arrow (vs. rank before last batch)
+                  const prevRank = prevRankByUser[row.userId] ?? row.rank;
+                  const realRankDelta = prevRank - row.rank; // positive = moved up
+
                   return (
                     <tr
                       key={row.userId}
@@ -386,8 +419,8 @@ export function ScoreboardTable({
                           : row.rank}
                       </td>
 
-                      {/* Movement arrow (simulating only) */}
-                      {simulating && (
+                      {/* Movement arrow column */}
+                      {simulating ? (
                         <td className="px-2 py-2.5 text-center w-10">
                           {anyChange && rankDelta !== 0 ? (
                             <span
@@ -409,7 +442,29 @@ export function ScoreboardTable({
                             </span>
                           )}
                         </td>
-                      )}
+                      ) : hasPrevRanks ? (
+                        <td className="px-2 py-2.5 text-center w-10">
+                          {realRankDelta !== 0 ? (
+                            <span
+                              className="text-xs font-bold"
+                              style={{
+                                color: realRankDelta > 0 ? "#16a34a" : "#dc2626",
+                              }}
+                            >
+                              {realRankDelta > 0
+                                ? `↑${realRankDelta}`
+                                : `↓${Math.abs(realRankDelta)}`}
+                            </span>
+                          ) : (
+                            <span
+                              className="text-xs"
+                              style={{ color: "#9ca3af" }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                      ) : null}
 
                       {/* Player name */}
                       <td className="px-3 py-2.5">
@@ -491,19 +546,35 @@ export function ScoreboardTable({
                       )}
 
                       {/* Next-match prediction preview columns */}
-                      {nextMatches.map((m) => {
-                        const pred = m.roundClosed
-                          ? nextPredByKey[`${row.userId}:${m.id}`]
-                          : undefined;
-                        return (
-                          <td
-                            key={m.id}
-                            className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
-                          >
-                            {pred ? `${pred.home}–${pred.away}` : "—"}
+                      {simulating ? (
+                        nextUnsimulatedMatch ? (
+                          <td className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap">
+                            {(() => {
+                              const pred =
+                                predByKey[
+                                  `${row.userId}:${nextUnsimulatedMatch.id}`
+                                ];
+                              return pred
+                                ? `${pred.home}–${pred.away}`
+                                : "—";
+                            })()}
                           </td>
-                        );
-                      })}
+                        ) : null
+                      ) : (
+                        nextMatches.map((m) => {
+                          const pred = m.roundClosed
+                            ? nextPredByKey[`${row.userId}:${m.id}`]
+                            : undefined;
+                          return (
+                            <td
+                              key={m.id}
+                              className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
+                            >
+                              {pred ? `${pred.home}–${pred.away}` : "—"}
+                            </td>
+                          );
+                        })
+                      )}
 
                       {/* Completion status (data-status-col) */}
                       <td
