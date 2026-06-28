@@ -12,19 +12,9 @@ import { useTranslations } from "next-intl";
 import confetti from "canvas-confetti";
 import { markCalzonesSeen } from "@/lib/actions/calzon";
 
-// ---------------------------------------------------------------------------
-// Underpants silhouette paths (SVG path d-strings; filled solid by canvas-confetti)
-// ---------------------------------------------------------------------------
-const SHAPES = [
-  // Bikini bottom — waistband + two triangular cups meeting in the middle
-  "M 0,3 L 20,3 L 16,14 L 12,9 L 8,9 L 4,14 Z",
-  // Boy shorts — wide, nearly rectangular trapezoid
-  "M 0,0 L 22,0 L 20,14 L 2,14 Z",
-  // Thong — narrow V-triangle
-  "M 10,0 L 18,14 L 10,8 L 2,14 Z",
-  // Briefs — arch with curved leg band
-  "M 0,0 L 20,0 L 20,8 Q 10,18 0,8 Z",
-];
+// Emoji used as confetti shapes — rendered at scalar size so they're clearly
+// recognizable as underpants flying across the screen.
+const UNDERPANTS_EMOJI = ["🩲", "👙"];
 
 const COLORS = [
   "#FF69B4", // hot pink
@@ -68,8 +58,9 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
     ).matches;
 
     if (!prefersReduced) {
-      const underpants = SHAPES.map((path) =>
-        confetti.shapeFromPath({ path })
+      const scalar = 3;
+      const underpants = UNDERPANTS_EMOJI.map((text) =>
+        confetti.shapeFromText({ text, scalar })
       );
 
       const burst = (
@@ -86,7 +77,7 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
             origin: { x: originX, y: 0.6 },
             shapes: underpants,
             colors: COLORS,
-            scalar: 2.2,
+            scalar,
             ticks: 220,
           });
         }, delay);
