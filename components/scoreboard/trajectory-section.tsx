@@ -248,7 +248,7 @@ export function TrajectorySection({
           return s.ranks[idx] ?? s.ranks.at(-1) ?? 1;
         }),
       stepW: STEP_W[viewMode],
-      useViewBox: viewMode === "round",
+      useViewBox: true,
     };
   }, [viewMode, stepLabels, stepDates, stepRoundKeys]);
 
@@ -431,7 +431,19 @@ export function TrajectorySection({
 
   // ── Header ──────────────────────────────────────────────────────────────────
   const header = (
-    <div className="flex items-center justify-between gap-2">
+    <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={() => setOpen((v) => !v)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setOpen((v) => !v);
+        }
+      }}
+      className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-md -mx-1 px-1 py-1 transition-colors hover:bg-muted/20"
+    >
       <div>
         <h2 className="dark:text-foreground text-lg font-bold text-[#1A2855]">
           {t("trajectoryTitle")}
@@ -442,22 +454,14 @@ export function TrajectorySection({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsFullscreen((v) => !v)}
+          onClick={(e) => { e.stopPropagation(); setIsFullscreen((v) => !v); }}
           aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
         >
           {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-        >
-          {open ? t("trajectoryHide") : t("trajectoryShow")}
-          <ChevronDown
-            className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </Button>
+        <ChevronDown
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-0" : "-rotate-90"}`}
+        />
       </div>
     </div>
   );
@@ -473,7 +477,7 @@ export function TrajectorySection({
               zIndex: 50,
               overflowY: "auto",
               padding: "20px 24px",
-              background: "var(--background)",
+              background: isDark ? "#09090b" : "#ffffff",
             }
           : { display: "flex", flexDirection: "column", gap: 12 }
       }
