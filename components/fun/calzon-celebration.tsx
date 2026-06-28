@@ -13,37 +13,38 @@ import confetti from "canvas-confetti";
 import { markCalzonesSeen } from "@/lib/actions/calzon";
 
 // ---------------------------------------------------------------------------
-// Five underwear silhouettes — all use bezier curves so they read as fabric
-// rather than polygons. Each has a distinct aspect ratio and silhouette.
-//
-// shapeFromPath fills the closed path with a solid color, so the OUTLINE
-// is what carries the "type" — curved leg openings, waistband height,
-// coverage width, and crotch depth all differ between types.
-//
-// Coordinate space is free-form; canvas-confetti normalises to the bounding
-// box automatically, so the proportions (wide/narrow, tall/short) persist.
+// Five underwear silhouettes traced from the WikiHow panties reference image.
+// Every shape uses cubic/quadratic bezier curves so the outlines read as
+// fabric. The key differentiators are:
+//   Brief    — full-width waistband, sides nearly straight, gentle U-bottom
+//   Boyshort — widest of all, shortest height, nearly flat hem (no V)
+//   Thong    — medium-width top, sides bow OUT then sweep to a very deep V
+//   Tanga    — full-width waist like brief but leg cut is extremely high,
+//              so the shape tapers dramatically from wide → near-nothing
+//   Bikini   — hip-width only (narrower than brief), medium V crotch
 // ---------------------------------------------------------------------------
 const PATHS = [
-  // Full brief — tall, wide, full coverage. Sides stay wide before curving
-  // gently inward with a low, modest leg opening (almost a U not a V).
-  "M 2,0 L 98,0 C 104,18 103,44 97,60 C 90,74 74,84 55,90 L 50,93 L 45,90 C 26,84 10,74 3,60 C -3,44 -4,18 2,0 Z",
+  // Brief — sides come down nearly straight with just a slight outward bow,
+  // leg opening is a low gentle arc that barely dips below mid-height.
+  // Result: wide rectangle with a soft rounded bottom (U, not V).
+  "M 2,0 L 98,0 C 103,14 103,36 98,52 C 92,64 78,74 60,80 L 50,83 L 40,80 C 22,74 8,64 2,52 C -3,36 -3,14 2,0 Z",
 
-  // Bikini — hip-width waistband, sides sweep out then cut back aggressively
-  // with a clear high leg opening that creates the classic bikini V-crotch.
-  "M 16,0 L 84,0 C 97,6 100,22 94,38 C 86,52 70,64 55,78 L 50,86 L 45,78 C 30,64 14,52 6,38 C 0,22 3,6 16,0 Z",
+  // Boyshort — even wider than brief, much shorter. The leg openings run
+  // almost horizontally (like actual shorts), leaving a nearly flat bottom hem.
+  "M 0,0 L 100,0 L 99,50 C 93,62 80,70 62,74 L 38,74 C 20,70 7,62 1,50 Z",
 
-  // Boy shorts — widest shape, shortest length. Nearly square, curved shorts
-  // hem across the full bottom rather than a V crotch.
-  "M 0,0 L 100,0 L 98,52 C 92,66 76,76 58,80 L 42,80 C 24,76 8,66 2,52 Z",
+  // Thong — medium-width waistband, sides curve outward at the hip then sweep
+  // sharply inward to a pronounced deep-V crotch point.
+  "M 18,0 L 82,0 C 94,6 97,20 90,35 C 82,50 66,66 53,82 L 50,92 L 47,82 C 34,66 18,50 10,35 C 3,20 6,6 18,0 Z",
 
-  // Thong — wide waistband bar at top, then side strings taper quickly to a
-  // very narrow centre triangle. Clearly T-shaped vs all the others.
-  "M 0,2 L 100,2 L 100,16 L 57,22 L 53,88 L 50,100 L 47,88 L 43,22 L 0,16 Z",
+  // Tanga brief — full edge-to-edge waistband exactly like brief, but the
+  // hip curves balloon outward (to 110) and the leg openings cut extremely
+  // high, so coverage narrows dramatically from waist to a shallow V crotch.
+  "M 2,0 L 98,0 C 106,10 110,28 102,42 C 92,56 76,66 57,76 L 50,83 L 43,76 C 24,66 8,56 -2,42 C -10,28 -6,10 2,0 Z",
 
-  // Brazilian / cheeky — similar waistband to bikini but the hip curves are
-  // dramatically exaggerated (extend to 112) giving maximum hip emphasis and
-  // the very high leg cut that exposes the cheek.
-  "M 10,0 L 90,0 C 106,8 112,26 102,42 C 92,56 76,64 57,76 L 50,84 L 43,76 C 24,64 8,56 -2,42 C -12,26 -6,8 10,0 Z",
+  // Bikini — hip-width only (starts at 15, not the edges like brief/tanga),
+  // moderate outward curve, medium leg-cut height, clear but not extreme V.
+  "M 15,0 L 85,0 C 96,7 100,22 94,38 C 86,52 70,64 55,78 L 50,86 L 45,78 C 30,64 14,52 6,38 C 0,22 4,7 15,0 Z",
 ];
 
 // Three distinct colors — randomly paired with the five shapes by canvas-
@@ -81,7 +82,7 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
     ).matches;
 
     if (!prefersReduced) {
-      const scalar = 4;
+      const scalar = 5;
       const underpants = PATHS.map((path) =>
         confetti.shapeFromPath({ path })
       );
