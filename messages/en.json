@@ -328,7 +328,11 @@
     "selectTeam": "Select team",
     "mustBeDistinct": "The three teams must be different.",
     "errorSaving": "Error saving. Try again.",
-    "pts": "pts"
+    "pts": "pts",
+    "statsTitle": "Podium Stats",
+    "statsEntries": "{count, plural, one {# podium submitted} other {# podiums submitted}}",
+    "statsOnMostPodiums": "On the most podiums",
+    "statsMostPopular": "Most popular podium"
   },
   "fun": {
     "badge": "Just for fun",

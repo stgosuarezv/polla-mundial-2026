@@ -328,7 +328,11 @@
     "selectTeam": "Seleccionar equipo",
     "mustBeDistinct": "Los tres equipos deben ser distintos.",
     "errorSaving": "Error al guardar. Inténtalo de nuevo.",
-    "pts": "pts"
+    "pts": "pts",
+    "statsTitle": "Estadísticas del Podio",
+    "statsEntries": "{count, plural, one {# podio ingresado} other {# podios ingresados}}",
+    "statsOnMostPodiums": "En más podios",
+    "statsMostPopular": "Podio más elegido"
   },
   "fun": {
     "badge": "Solo por diversión",
