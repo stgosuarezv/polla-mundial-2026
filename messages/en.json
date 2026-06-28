@@ -74,7 +74,7 @@
     "stats": "Stats",
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
-    "extraTimeNote": "Remember that, starting from the Round of 16, if a match goes to extra time, predictions will be based on the full 120 minutes of play, not just the 90 minutes."
+    "extraTimeNote": "Remember that, starting from the Round of 32, if a match goes to extra time, predictions will be based on the full 120 minutes of play, not just the 90 minutes."
   },
   "scoreboard": {
     "title": "Scoreboard",
