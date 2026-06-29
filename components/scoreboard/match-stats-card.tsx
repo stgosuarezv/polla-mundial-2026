@@ -36,10 +36,21 @@ export function useBoxBorder() {
 
 // ── sub-components ─────────────────────────────────────────────────────────────
 
-function ScoreChip({ group }: { group: ScorelineGroup }) {
+function ScoreChip({
+  group,
+  showAdvancer = true,
+}: {
+  group: ScorelineGroup;
+  showAdvancer?: boolean;
+}) {
   const t = useTranslations("scoreboard");
-  // For knockout draws: "1–1 (BRA)", otherwise plain "1–1".
-  const scoreLabel = group.advancer
+  // Trigger suppresses the advancer suffix inside a bucket (the bucket header
+  // already shows it). The popover always includes it for full context.
+  const triggerLabel =
+    group.advancer && showAdvancer
+      ? `${group.home}–${group.away} (${group.advancer})`
+      : `${group.home}–${group.away}`;
+  const fullLabel = group.advancer
     ? `${group.home}–${group.away} (${group.advancer})`
     : `${group.home}–${group.away}`;
   return (
@@ -47,10 +58,10 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
       <PopoverTrigger
         className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border bg-background px-2 py-1 text-sm transition-colors hover:border-foreground/30 hover:bg-muted/50"
         title={t("seeWhoPicked")}
-        aria-label={`${scoreLabel}: ${t("seeWhoPicked")}`}
+        aria-label={`${fullLabel}: ${t("seeWhoPicked")}`}
       >
         <span className="font-medium tabular-nums">
-          {scoreLabel}
+          {triggerLabel}
         </span>
         <span className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2">
           ×{group.count}
@@ -62,7 +73,7 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
         align="start"
       >
         <p className="shrink-0 text-xs font-medium text-muted-foreground">
-          {scoreLabel} · ×{group.count}
+          {fullLabel} · ×{group.count}
         </p>
         <ul
           className="mt-1 min-h-0 flex-1 overflow-y-auto text-sm"
@@ -110,6 +121,27 @@ function StatBox({
   );
 }
 
+/** Groups scores by advancer for the knockout-draw bucket layout. */
+function groupByAdvancer(
+  scores: ScorelineGroup[]
+): { advancer: string; total: number; scores: ScorelineGroup[] }[] | null {
+  if (!scores.some((g) => g.advancer)) return null;
+  const map = new Map<string, ScorelineGroup[]>();
+  for (const g of scores) {
+    const key = g.advancer ?? "";
+    const list = map.get(key) ?? [];
+    list.push(g);
+    map.set(key, list);
+  }
+  return [...map.entries()]
+    .map(([advancer, scores]) => ({
+      advancer,
+      total: scores.reduce((s, g) => s + g.count, 0),
+      scores,
+    }))
+    .sort((a, b) => b.total - a.total || a.advancer.localeCompare(b.advancer));
+}
+
 function OutcomeColumn({
   label,
   outcome,
@@ -118,6 +150,7 @@ function OutcomeColumn({
   outcome: OutcomeSummary;
 }) {
   const boxBorder = useBoxBorder();
+  const buckets = groupByAdvancer(outcome.scores);
   return (
     <div className="min-w-0">
       <div
@@ -132,15 +165,42 @@ function OutcomeColumn({
         </span>
       </div>
       <div
-        className="space-y-1 rounded-b-md border border-t-0 p-1.5"
+        className="rounded-b-md border border-t-0 p-1.5"
         style={boxBorder}
       >
         {outcome.scores.length === 0 ? (
           <p className="py-1 text-center text-xs text-muted-foreground">—</p>
+        ) : buckets ? (
+          // Knockout draw: one bucket per predicted advancer, stacked vertically.
+          <div className="space-y-2">
+            {buckets.map((bucket, i) => (
+              <div key={bucket.advancer}>
+                {i > 0 && (
+                  <div className="mb-2 border-t" style={boxBorder} />
+                )}
+                <p className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[#1A2855] dark:text-foreground">
+                  <span>{bucket.advancer}</span>
+                  <span className="font-normal text-muted-foreground">×{bucket.total}</span>
+                </p>
+                <div className="space-y-1">
+                  {bucket.scores.map((g) => (
+                    <ScoreChip
+                      key={`${g.home}-${g.away}-${g.advancer ?? ""}`}
+                      group={g}
+                      showAdvancer={false}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          outcome.scores.map((g) => (
-            <ScoreChip key={`${g.home}-${g.away}-${g.advancer ?? ""}`} group={g} />
-          ))
+          // Group stage / decisive: flat list as before.
+          <div className="space-y-1">
+            {outcome.scores.map((g) => (
+              <ScoreChip key={`${g.home}-${g.away}`} group={g} />
+            ))}
+          </div>
         )}
       </div>
     </div>
