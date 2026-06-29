@@ -88,7 +88,7 @@ const PAD_L = 24;
 const PAD_R = 72;
 const STEP_W: Record<ViewMode, number> = { round: 72, day: 28, match: 40 };
 const BRUSH_H = 28;
-const DEFAULT_PLOT_H = 520;
+const DEFAULT_PLOT_H = 620;
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 function playerColor(index: number, isMe: boolean, isDark: boolean): string {
@@ -248,6 +248,7 @@ export function TrajectorySection({
   const [chartHoveredId, setChartHoveredId] = useState<string | null>(null);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<"png" | "pdf" | null>(null);
+  const [chartInnerW, setChartInnerW] = useState(600);
 
   // X-axis range keyed by view mode so switching modes never resets the sibling ranges.
   // Each mode starts as [0, 99999] (full range); clamped to totalSteps-1 at use time.
@@ -265,6 +266,7 @@ export function TrajectorySection({
     startRangeStart: number;
     startRangeEnd: number;
   } | null>(null);
+  const chartCardRef = useRef<HTMLDivElement>(null);
 
   // ── Palettes ─────────────────────────────────────────────────────────────────
   const board = makeBoardPalette(isDark);
@@ -284,6 +286,16 @@ export function TrajectorySection({
     document.body.style.overflow = isFullscreen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isFullscreen]);
+
+  useEffect(() => {
+    const el = chartCardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setChartInnerW(entry.contentRect.width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]); // re-run when the chart card mounts/unmounts
 
   // plotH: derive during render so there's no extra setState-in-effect cycle.
   // window may be undefined during SSR; isFullscreen starts false so no hydration mismatch.
@@ -314,16 +326,12 @@ export function TrajectorySection({
     labels: string[];
     getSeriesRanks: (s: RankHistorySeries) => number[];
     getSeriesPoints: (s: RankHistorySeries) => number[];
-    stepW: number;
-    useViewBox: boolean;
   } => {
     if (viewMode === "match") {
       return {
         labels: stepLabels,
         getSeriesRanks: (s) => s.ranks,
         getSeriesPoints: (s) => s.points,
-        stepW: STEP_W.match,
-        useViewBox: false,
       };
     }
     const keyOf = (i: number): string =>
@@ -352,18 +360,11 @@ export function TrajectorySection({
         return s.points[idx] ?? s.points.at(-1) ?? 0;
       });
 
-    return {
-      labels,
-      getSeriesRanks,
-      getSeriesPoints,
-      stepW: STEP_W[viewMode],
-      useViewBox: true,
-    };
+    return { labels, getSeriesRanks, getSeriesPoints };
   }, [viewMode, stepLabels, stepDates, stepRoundKeys]);
 
   const allLabels = displayData.labels;
   const totalSteps = allLabels.length;
-  const currentStepW = displayData.stepW;
 
   // Per-mode range helpers
   const [rangeStart, rangeEnd] = rangeByMode[viewMode]!;
@@ -377,7 +378,16 @@ export function TrajectorySection({
   const effectiveEnd = Math.max(effectiveStart + 1, Math.min(rangeEnd, totalSteps - 1));
   const displayLabels = allLabels.slice(effectiveStart, effectiveEnd + 1);
   const nSteps = displayLabels.length;
-  const plotW = Math.max(300, PAD_L + (nSteps - 1) * currentStepW + PAD_R);
+  // Dynamic step width: spread steps across the available plot area; scroll only when
+  // the natural minimum-readable step width would overflow (e.g. 60+ matches).
+  const naturalStepW = STEP_W[viewMode];
+  const plotAreaW = Math.max(200, chartInnerW - GUTTER_W);
+  const naturalPlotW = nSteps <= 1 ? plotAreaW : PAD_L + (nSteps - 1) * naturalStepW + PAD_R;
+  const useScroll = naturalPlotW > plotAreaW;
+  const currentStepW = useScroll || nSteps <= 1
+    ? naturalStepW
+    : (plotAreaW - PAD_L - PAD_R) / Math.max(1, nSteps - 1);
+  const plotW = useScroll ? Math.max(300, naturalPlotW) : plotAreaW;
   const xFor = (i: number) => PAD_L + i * currentStepW;
 
   // ── Windowed values ──────────────────────────────────────────────────────────
@@ -597,7 +607,7 @@ export function TrajectorySection({
           ? t("trajectoryViewByDay")
           : t("trajectoryViewByMatch"),
       labels: displayLabels,
-      stepW: currentStepW,
+      stepW: STEP_W[viewMode],
       aggSeries,
       meValues: mev,
       currentUserId,
@@ -624,7 +634,7 @@ export function TrajectorySection({
         img.onload = () => {
           const scale = 2;
           const nw = displayLabels.length;
-          const exportPlotW = Math.max(600, PAD_L + (nw - 1) * currentStepW + PAD_R);
+          const exportPlotW = Math.max(600, PAD_L + (nw - 1) * STEP_W[viewMode] + PAD_R);
           const totalW = GUTTER_W + exportPlotW;
           const canvas = document.createElement("canvas");
           canvas.width = totalW * scale;
@@ -816,6 +826,7 @@ export function TrajectorySection({
 
           {/* ── Chart board ───────────────────────────────────────────────── */}
           <div
+            ref={chartCardRef}
             style={{
               background: board.bg,
               borderRadius: 12,
@@ -885,17 +896,16 @@ export function TrajectorySection({
                 ))}
               </svg>
 
-              {/* Scrollable plot */}
+              {/* Scrollable plot — scrolls only when naturalPlotW exceeds available width */}
               <div
                 style={{
-                  overflowX: displayData.useViewBox ? "hidden" : "auto",
+                  overflowX: useScroll ? "auto" : "hidden",
                   flexGrow: 1,
                 }}
               >
                 <svg
-                  width={displayData.useViewBox ? "100%" : plotW}
+                  width={plotW}
                   height={plotH}
-                  viewBox={displayData.useViewBox ? `0 0 ${plotW} ${plotH}` : undefined}
                   role="img"
                   style={{ display: "block", cursor: "default" }}
                   onClick={handleChartBgClick}
