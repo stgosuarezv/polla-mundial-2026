@@ -38,15 +38,19 @@ export function useBoxBorder() {
 
 function ScoreChip({ group }: { group: ScorelineGroup }) {
   const t = useTranslations("scoreboard");
+  // For knockout draws: "1–1 (BRA)", otherwise plain "1–1".
+  const scoreLabel = group.advancer
+    ? `${group.home}–${group.away} (${group.advancer})`
+    : `${group.home}–${group.away}`;
   return (
     <Popover>
       <PopoverTrigger
         className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border bg-background px-2 py-1 text-sm transition-colors hover:border-foreground/30 hover:bg-muted/50"
         title={t("seeWhoPicked")}
-        aria-label={`${group.home}–${group.away}: ${t("seeWhoPicked")}`}
+        aria-label={`${scoreLabel}: ${t("seeWhoPicked")}`}
       >
         <span className="font-medium tabular-nums">
-          {group.home}–{group.away}
+          {scoreLabel}
         </span>
         <span className="text-xs text-muted-foreground underline decoration-dotted underline-offset-2">
           ×{group.count}
@@ -58,7 +62,7 @@ function ScoreChip({ group }: { group: ScorelineGroup }) {
         align="start"
       >
         <p className="shrink-0 text-xs font-medium text-muted-foreground">
-          {group.home}–{group.away} · ×{group.count}
+          {scoreLabel} · ×{group.count}
         </p>
         <ul
           className="mt-1 min-h-0 flex-1 overflow-y-auto text-sm"
@@ -135,7 +139,7 @@ function OutcomeColumn({
           <p className="py-1 text-center text-xs text-muted-foreground">—</p>
         ) : (
           outcome.scores.map((g) => (
-            <ScoreChip key={`${g.home}-${g.away}`} group={g} />
+            <ScoreChip key={`${g.home}-${g.away}-${g.advancer ?? ""}`} group={g} />
           ))
         )}
       </div>
