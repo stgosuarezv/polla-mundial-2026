@@ -143,7 +143,15 @@
     "trajectoryViewByDay": "Día",
     "trajectoryViewByRound": "Ronda",
     "trajectoryDownloadPng": "PNG",
-    "trajectoryDownloadPdf": "PDF"
+    "trajectoryDownloadPdf": "PDF",
+    "trajectoryAxisPlaces": "Puestos",
+    "trajectoryAxisPoints": "Puntos",
+    "trajectoryLast3Rounds": "Últ. 3",
+    "trajectoryLast5Rounds": "Últ. 5",
+    "trajectoryLast3Days": "3 días",
+    "trajectoryLastWeek": "7 días",
+    "trajectoryLast10Matches": "Últ. 10",
+    "trajectoryLast20Matches": "Últ. 20"
   },
   "admin": {
     "title": "Panel de administración",

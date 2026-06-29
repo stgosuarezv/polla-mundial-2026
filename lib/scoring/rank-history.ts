@@ -27,6 +27,8 @@ export interface RankHistorySeries {
   userId: string;
   displayName: string;
   ranks: number[];
+  /** Cumulative total points at each match step (same length as ranks). */
+  points: number[];
 }
 
 export interface RankHistory {
@@ -70,6 +72,7 @@ export function buildRankHistory(
     userId: u.id,
     displayName: u.displayName,
     ranks: [],
+    points: [],
   }));
   const seriesByUser = new Map(series.map((s) => [s.userId, s]));
 
@@ -78,7 +81,11 @@ export function buildRankHistory(
     cumulative.push(match);
     const rows = computeLeaderboard(users, cumulative, predictions);
     for (const row of rows) {
-      seriesByUser.get(row.userId)?.ranks.push(row.rank);
+      const s = seriesByUser.get(row.userId);
+      if (s) {
+        s.ranks.push(row.rank);
+        s.points.push(row.totalPoints);
+      }
     }
   }
 
