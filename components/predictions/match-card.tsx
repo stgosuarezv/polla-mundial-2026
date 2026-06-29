@@ -296,6 +296,18 @@ export function MatchCard({
         </p>
       )}
 
+      {/* Penalty winner pick (locked KO draws) */}
+      {isLocked && isKnockout && prediction?.penalty_winner_team_id && (
+        <p className="mt-1 text-center text-xs text-muted-foreground">
+          {t.penaltyWinner}:{" "}
+          <span className="font-medium">
+            {prediction.penalty_winner_team_id === homeTeam?.id
+              ? homeTeam?.name
+              : awayTeam?.name}
+          </span>
+        </p>
+      )}
+
       {/* Penalty winner picker (editable KO draws) */}
       {!isLocked && showPenPicker && homeTeam && awayTeam && (
         <div className="mt-2">
