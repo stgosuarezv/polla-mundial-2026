@@ -1,55 +1,120 @@
 "use client";
 
-// ── CalzonCelebration — confetti underpants burst on a new perfect score ──────
+// ── CalzonCelebration — flying underwear on a new perfect score ───────────────
 //
-// A "calzón" (Spanish pun: calzar = to fit perfectly, calzón = underpants) is a
-// perfect per-match prediction: 10 pts in the group stage or 25 pts in KO.
-// Fires once per new calzón (count-based) using DB persistence so it survives
-// across devices / sessions.
+// Replaces canvas-confetti (single-color fills only) with DOM-based SVG pieces
+// so each garment has a waistband, fabric body, and leg trim in distinct colors.
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import confetti from "canvas-confetti";
 import { markCalzonesSeen } from "@/lib/actions/calzon";
 
 // ---------------------------------------------------------------------------
-// Five underwear silhouettes traced from the WikiHow panties reference image.
-// Every shape uses cubic/quadratic bezier curves so the outlines read as
-// fabric. The key differentiators are:
-//   Brief    — full-width waistband, sides nearly straight, gentle U-bottom
-//   Boyshort — widest of all, shortest height, nearly flat hem (no V)
-//   Thong    — medium-width top, sides bow OUT then sweep to a very deep V
-//   Tanga    — full-width waist like brief but leg cut is extremely high,
-//              so the shape tapers dramatically from wide → near-nothing
-//   Bikini   — hip-width only (narrower than brief), medium V crotch
+// Five underwear types traced from the WikiHow panties reference image.
+// Each has: colored waistband rect + curved fabric body + leg-opening trim.
+// viewBox is sized to contain all curve overhangs without clipping.
 // ---------------------------------------------------------------------------
-const PATHS = [
-  // Brief — sides come down nearly straight with just a slight outward bow,
-  // leg opening is a low gentle arc that barely dips below mid-height.
-  // Result: wide rectangle with a soft rounded bottom (U, not V).
-  "M 2,0 L 98,0 C 103,14 103,36 98,52 C 92,64 78,74 60,80 L 50,83 L 40,80 C 22,74 8,64 2,52 C -3,36 -3,14 2,0 Z",
-
-  // Boyshort — even wider than brief, much shorter. The leg openings run
-  // almost horizontally (like actual shorts), leaving a nearly flat bottom hem.
-  "M 0,0 L 100,0 L 99,50 C 93,62 80,70 62,74 L 38,74 C 20,70 7,62 1,50 Z",
-
-  // Thong — medium-width waistband, sides curve outward at the hip then sweep
-  // sharply inward to a pronounced deep-V crotch point.
-  "M 18,0 L 82,0 C 94,6 97,20 90,35 C 82,50 66,66 53,82 L 50,92 L 47,82 C 34,66 18,50 10,35 C 3,20 6,6 18,0 Z",
-
-  // Tanga brief — full edge-to-edge waistband exactly like brief, but the
-  // hip curves balloon outward (to 110) and the leg openings cut extremely
-  // high, so coverage narrows dramatically from waist to a shallow V crotch.
-  "M 2,0 L 98,0 C 106,10 110,28 102,42 C 92,56 76,66 57,76 L 50,83 L 43,76 C 24,66 8,56 -2,42 C -10,28 -6,10 2,0 Z",
-
-  // Bikini — hip-width only (starts at 15, not the edges like brief/tanga),
-  // moderate outward curve, medium leg-cut height, clear but not extreme V.
-  "M 15,0 L 85,0 C 96,7 100,22 94,38 C 86,52 70,64 55,78 L 50,86 L 45,78 C 30,64 14,52 6,38 C 0,22 4,7 15,0 Z",
+const TYPES = [
+  {
+    // Brief — full-width elastic, sides nearly straight, soft U-bottom (no V).
+    viewBox: "-8 0 116 92",
+    markup: `
+<rect x="0" y="0" width="100" height="13" rx="4" fill="#C2185B"/>
+<path d="M 0,13 L 100,13 C 106,28 105,48 99,63 C 92,74 78,82 60,86 L 50,88 L 40,86 C 22,82 8,74 1,63 C -5,48 -6,28 0,13 Z" fill="#FF8FAB"/>
+<path d="M 1,63 C 8,74 22,82 40,86 L 38,90 C 18,86 3,78 -2,65 Z" fill="#C2185B" fill-opacity="0.42"/>
+<path d="M 99,63 C 92,74 78,82 60,86 L 62,90 C 82,86 97,78 102,65 Z" fill="#C2185B" fill-opacity="0.42"/>`,
+  },
+  {
+    // Bikini — hip-width band (starts at 14, not the edges), lavender/purple,
+    // decorative bow at center waistband, clear moderate V crotch.
+    viewBox: "-4 0 108 90",
+    markup: `
+<rect x="14" y="0" width="72" height="13" rx="4" fill="#6A1B9A"/>
+<path d="M 14,13 L 86,13 C 97,20 101,36 95,52 C 87,64 70,74 55,80 L 50,85 L 45,80 C 30,74 13,64 5,52 C -1,36 3,20 14,13 Z" fill="#CE93D8"/>
+<ellipse cx="50" cy="6.5" rx="5" ry="4.5" fill="#9C27B0" fill-opacity="0.55"/>
+<ellipse cx="50" cy="6.5" rx="2.5" ry="2" fill="#E1BEE7"/>`,
+  },
+  {
+    // Boy shorts — widest of all, shortest height, hem is nearly horizontal
+    // (like actual shorts), no V crotch at all.
+    viewBox: "-4 0 108 80",
+    markup: `
+<rect x="0" y="0" width="100" height="13" rx="3" fill="#B71C1C"/>
+<path d="M 0,13 L 100,13 L 99,50 C 93,62 78,70 60,74 L 40,74 C 22,70 7,62 1,50 Z" fill="#EF5350"/>
+<path d="M 1,50 C 7,62 22,70 40,74 L 38,78 C 18,74 3,66 -1,52 Z" fill="#B71C1C" fill-opacity="0.42"/>
+<path d="M 99,50 C 93,62 78,70 60,74 L 62,78 C 82,74 97,66 101,52 Z" fill="#B71C1C" fill-opacity="0.42"/>`,
+  },
+  {
+    // Thong — medium-width waistband, sides bow outward at the hip then sweep
+    // sharply to a very deep pointed V crotch. Teal/dark teal.
+    viewBox: "0 0 100 98",
+    markup: `
+<rect x="14" y="0" width="72" height="13" rx="4" fill="#00695C"/>
+<path d="M 18,13 L 82,13 C 95,20 98,36 91,53 C 83,67 66,79 53,91 L 50,96 L 47,91 C 34,79 17,67 9,53 C 2,36 5,20 18,13 Z" fill="#4DD0E1"/>`,
+  },
+  {
+    // Tanga brief — same full-width waistband as brief, but the hips balloon
+    // outward (to ±16 beyond the band) and leg openings cut extremely high,
+    // making coverage taper dramatically from wide waist to a deep V.
+    viewBox: "-18 0 136 88",
+    markup: `
+<rect x="-2" y="0" width="104" height="13" rx="4" fill="#BF360C"/>
+<path d="M -2,13 L 102,13 C 112,23 116,40 108,54 C 98,67 78,76 58,81 L 50,84 L 42,81 C 22,76 2,67 -8,54 C -16,40 -12,23 -2,13 Z" fill="#FFAB91"/>
+<path d="M -8,54 C 2,67 22,76 42,81 L 40,84 C 18,79 0,70 -10,56 Z" fill="#BF360C" fill-opacity="0.42"/>
+<path d="M 108,54 C 98,67 78,76 58,81 L 60,84 C 82,79 100,70 110,56 Z" fill="#BF360C" fill-opacity="0.42"/>`,
+  },
 ];
 
-// Three distinct colors — randomly paired with the five shapes by canvas-
-// confetti, giving 5×3 = 15 visible combinations per burst.
-const COLORS = ["#FF4DA6", "#8B2FC9", "#FF3131"];
+// ---------------------------------------------------------------------------
+
+function spawnPiece(container: HTMLElement, index: number) {
+  const type = TYPES[Math.floor(Math.random() * TYPES.length)]!;
+
+  // Parse viewBox to preserve the garment's aspect ratio
+  const vbParts = type.viewBox.trim().split(/\s+/).map(Number);
+  const vbW = vbParts[2] ?? 100;
+  const vbH = vbParts[3] ?? 90;
+
+  const width = 54 + Math.random() * 24; // 54–78 px
+  const height = (width * vbH) / vbW;
+
+  const startX = 4 + Math.random() * 88; // vw
+  const startRot = Math.random() * 360;
+  const spin = (Math.random() > 0.5 ? 1 : -1) * (220 + Math.random() * 420);
+  const drift = (Math.random() - 0.5) * 16; // vw horizontal drift
+  const duration = 3000 + Math.random() * 2000;
+  const delay = index * 70;
+
+  const el = document.createElement("div");
+  el.style.cssText = `position:absolute;left:${startX}vw;top:-90px;pointer-events:none;`;
+  el.innerHTML = `<svg viewBox="${type.viewBox}" xmlns="http://www.w3.org/2000/svg" width="${Math.round(width)}" height="${Math.round(height)}">${type.markup}</svg>`;
+  container.appendChild(el);
+
+  el.animate(
+    [
+      { transform: `rotate(${startRot}deg)`, opacity: 1 },
+      {
+        transform: `translateX(${drift}vw) translateY(calc(100vh + 110px)) rotate(${startRot + spin}deg)`,
+        opacity: 0.75,
+      },
+    ],
+    { duration, delay, easing: "ease-in", fill: "forwards" }
+  );
+
+  setTimeout(() => el.remove(), duration + delay + 100);
+}
+
+function launchUnderpants() {
+  const container = document.createElement("div");
+  container.style.cssText =
+    "position:fixed;inset:0;pointer-events:none;z-index:9998;overflow:hidden;";
+  document.body.appendChild(container);
+
+  const count = 32;
+  for (let i = 0; i < count; i++) spawnPiece(container, i);
+
+  setTimeout(() => container.remove(), count * 70 + 5500);
+}
 
 // ---------------------------------------------------------------------------
 
@@ -66,59 +131,26 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
   useEffect(() => {
     if (perfectCount <= seenCount) return;
 
-    // Guard against double-fire within the same browser session
     const sessionKey = `calzon-celebrated:${perfectCount}`;
     if (sessionStorage.getItem(sessionKey)) return;
     if (firedRef.current) return;
     firedRef.current = true;
     sessionStorage.setItem(sessionKey, "1");
 
-    // Persist immediately — before the confetti, to avoid re-celebrating if the
-    // user navigates away mid-animation.
     markCalzonesSeen(perfectCount);
 
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
 
-    if (!prefersReduced) {
-      const scalar = 5;
-      const underpants = PATHS.map((path) =>
-        confetti.shapeFromPath({ path })
-      );
-
-      const burst = (
-        angle: number,
-        originX: number,
-        delay: number,
-        count: number
-      ) => {
-        setTimeout(() => {
-          confetti({
-            particleCount: count,
-            angle,
-            spread: 60,
-            origin: { x: originX, y: 0.6 },
-            shapes: underpants,
-            colors: COLORS,
-            scalar,
-            ticks: 300,
-          });
-        }, delay);
-      };
-
-      burst(60, 0, 0, 25);     // left side
-      burst(120, 1, 150, 25);  // right side
-      burst(90, 0.5, 300, 35); // centre top
-    }
+    if (!prefersReduced) launchUnderpants();
 
     setVisible(true);
 
-    // Auto-dismiss after 5 s
     const timer = setTimeout(() => setVisible(false), 5000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // fire once on mount — props are stable server-computed values
+  }, []);
 
   if (!visible) return null;
 
@@ -144,7 +176,8 @@ export function CalzonCelebration({ perfectCount, seenCount }: Props) {
         whiteSpace: "nowrap",
         pointerEvents: "none",
         userSelect: "none",
-        animation: "calzon-pop 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+        animation:
+          "calzon-pop 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
       }}
     >
       {t("calzonTitle")}
