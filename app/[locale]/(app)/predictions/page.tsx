@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
+import {
+  loadMatchSummaries,
+  type MatchMeta,
+} from "@/lib/scoring/match-summaries";
 import { MatchCard } from "@/components/predictions/match-card";
 import { CollapsibleRound } from "@/components/predictions/collapsible-round";
 import { RoundControls } from "@/components/predictions/round-controls";
@@ -79,6 +82,24 @@ export default async function PredictionsPage({ params }: Props) {
     (allProfiles ?? []).map((p) => [p.id, p.display_name as string])
   );
 
+  // Per-match metadata for loadMatchSummaries — resolves knockout-draw advancer
+  // codes so "1–1 (BRA)" and "1–1 (JPN)" appear as separate chips in the card.
+  const matchMetaMap = new Map<string, MatchMeta>();
+  for (const r of rounds ?? []) {
+    if (r.lock_time > now) continue;
+    for (const m of r.matches ?? []) {
+      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      matchMetaMap.set(m.id, {
+        knockout: r.stage === "knockout",
+        homeTeamId: home?.id ?? null,
+        homeCode: home?.code ?? "TBD",
+        awayTeamId: away?.id ?? null,
+        awayCode: away?.code ?? "TBD",
+      });
+    }
+  }
+
   // Batch 2: predictions (needs user.id) and summaries (needs lockedMatchIds +
   // nameByUserId) have no dependency on each other
   const [{ data: predictions }, summaryByMatchId] = await Promise.all([
@@ -88,7 +109,7 @@ export default async function PredictionsPage({ params }: Props) {
         "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
       )
       .eq("user_id", user.id),
-    loadMatchSummaries(supabase, lockedMatchIds, nameByUserId),
+    loadMatchSummaries(supabase, lockedMatchIds, nameByUserId, matchMetaMap),
   ]);
 
   const predByMatchId = new Map(

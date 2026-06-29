@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
 import { computeLeaderboard } from "@/lib/scoring/scoring";
 import { buildRankHistory } from "@/lib/scoring/rank-history";
-import { loadMatchSummaries } from "@/lib/scoring/match-summaries";
+import {
+  loadMatchSummaries,
+  type MatchMeta,
+} from "@/lib/scoring/match-summaries";
 import {
   MatchStatsBrowser,
   type MatchStatsGroup,
@@ -200,6 +203,22 @@ export default async function ScoreboardPage({ params }: Props) {
     });
   }
 
+  // Per-match metadata for loadMatchSummaries — used to split knockout draws by
+  // who the player predicted to advance (e.g. "1–1 (BRA)" vs "1–1 (JPN)").
+  const matchMetaMap = new Map<string, MatchMeta>();
+  for (const m of lockedMatchesForBrowser) {
+    const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+    const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+    const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+    matchMetaMap.set(m.id, {
+      knockout: round?.stage === "knockout",
+      homeTeamId: (home as TeamLite | null)?.id ?? null,
+      homeCode: (home as TeamLite | null)?.code ?? "TBD",
+      awayTeamId: (away as TeamLite | null)?.id ?? null,
+      awayCode: (away as TeamLite | null)?.code ?? "TBD",
+    });
+  }
+
   // ── Parallel batch 2: fetches that depend on batch 1 ────────────────────────
   // All predictions for finished matches (RLS allows seeing others' in locked
   // rounds). Paginated: 50 players × 100+ matches exceeds the 1,000-row cap.
@@ -278,7 +297,8 @@ export default async function ScoreboardPage({ params }: Props) {
     loadMatchSummaries(
       supabase,
       lockedMatchesForBrowser.map((m) => m.id),
-      nameByUserId
+      nameByUserId,
+      matchMetaMap
     ),
     whatIfPredsPromise,
     nextPredsPromise,
