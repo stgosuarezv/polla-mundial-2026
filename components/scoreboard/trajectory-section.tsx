@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { ChevronDown, Check, Maximize2, Minimize2, Pin } from "lucide-react";
@@ -17,17 +17,53 @@ interface TrajectorySectionProps {
 }
 
 type ViewMode = "round" | "day" | "match";
+type YAxisMode = "places" | "points";
 
-// Always-dark race-board palette.
+// ── Brand palette (theme-independent) ────────────────────────────────────────
+const GOLD = "#F4C430";
+const GOLD_LIGHT = "#F8DD8A";
+const GOLD_DARK = "#A07800"; // darker gold for light backgrounds
 const NAVY = "#1A2855";
 const NAVY_DEEP = "#141F44";
 const CREAM = "#F5F0E6";
-const GOLD = "#F4C430";
-const GOLD_LIGHT = "#F8DD8A";
 const SUCCESS = "#1EA64F";
 const DANGER = "#E10F1E";
-const OTHER_FALLBACK = "#7C8AB0";
 
+// ── Theme-aware board palette (SVG fills) ────────────────────────────────────
+function makeBoardPalette(isDark: boolean) {
+  return isDark
+    ? {
+        bg: NAVY_DEEP,
+        border: `${GOLD}33`,
+        gridOpacity: 0.06,
+        text: CREAM,
+        textOp: 0.5,
+        waypointFill: NAVY_DEEP,
+        tickLastColor: GOLD,
+        hoverBg: NAVY,
+        fallback: "#7C8AB0",
+      }
+    : {
+        bg: "#FFFFFF",
+        border: `${NAVY}22`,
+        gridOpacity: 0.08,
+        text: NAVY,
+        textOp: 0.55,
+        waypointFill: "#FFFFFF",
+        tickLastColor: GOLD_DARK,
+        hoverBg: CREAM,
+        fallback: "#5E7BBF",
+      };
+}
+
+// ── Theme-aware player panel palette ─────────────────────────────────────────
+function makePanelPalette(isDark: boolean) {
+  return isDark
+    ? { bg: NAVY, border: `${GOLD}33`, name: CREAM, me: GOLD }
+    : { bg: CREAM, border: `${NAVY}22`, name: NAVY, me: GOLD_DARK };
+}
+
+// ── Round short labels ────────────────────────────────────────────────────────
 const SHORT_LABEL: Record<string, string> = {
   group_1: "G1",
   group_2: "G2",
@@ -41,18 +77,23 @@ const SHORT_LABEL: Record<string, string> = {
   knockout_final: "Fin",
 };
 
-// ── Plot geometry ────────────────────────────────────────────────────────────
+// ── Plot geometry ─────────────────────────────────────────────────────────────
 const GUTTER_W = 56;
-const VBH = 400;
-const PLOT_TOP = 72;
-const PLOT_BOTTOM = 360;
+const EXPORT_VBH = 440; // fixed height for PNG/PDF export
+const EXPORT_PLOT_TOP = Math.round(EXPORT_VBH * 0.16);
+const EXPORT_PLOT_BOTTOM = Math.round(EXPORT_VBH * 0.90);
+const PLOT_TOP_FRAC = 0.16;
+const PLOT_BOTTOM_FRAC = 0.90;
 const PAD_L = 24;
 const PAD_R = 72;
 const STEP_W: Record<ViewMode, number> = { round: 72, day: 28, match: 40 };
+const BRUSH_H = 28;
+const DEFAULT_PLOT_H = 520;
 
-function playerColor(index: number, isMe: boolean): string {
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function playerColor(index: number, isMe: boolean, isDark: boolean): string {
   if (isMe) return GOLD;
-  return `hsl(${(index * 47) % 360}, 55%, 64%)`;
+  return `hsl(${(index * 47) % 360}, 55%, ${isDark ? 64 : 38}%)`;
 }
 
 function initials(name: string): string {
@@ -66,100 +107,118 @@ function finalRank(s: RankHistorySeries): number {
   return s.ranks.length ? s.ranks[s.ranks.length - 1]! : Infinity;
 }
 
-// ── Export SVG builder (pure, no DOM) ────────────────────────────────────────
+function yPlaces(rank: number, top: number, bottom: number, domainMax: number): number {
+  return top + ((bottom - top) * (rank - 1)) / Math.max(1, domainMax - 1);
+}
+
+function yPoints(pts: number, top: number, bottom: number, maxPts: number): number {
+  return bottom - ((bottom - top) * pts) / Math.max(1, maxPts);
+}
+
+// ── Export SVG builder (pure, no DOM) ─────────────────────────────────────────
 function buildExportSvg(opts: {
   title: string;
   subtitle: string;
   labels: string[];
   stepW: number;
-  aggSeries: Array<{ userId: string; displayName: string; aggRanks: number[] }>;
-  meAggRanks: number[] | null;
+  aggSeries: Array<{ userId: string; displayName: string; values: number[] }>;
+  meValues: number[] | null;
   currentUserId: string | null;
   colorMap: Map<string, string>;
-  domainMax: number;
+  yAxisMode: YAxisMode;
+  placesDomainMax: number;
+  maxPoints: number;
   rankLabelArr: number[];
   meDelta: number;
   youLabel: string;
+  isDark: boolean;
 }): string {
   const {
-    title, subtitle, labels, stepW, aggSeries, meAggRanks, currentUserId,
-    colorMap, domainMax, rankLabelArr, meDelta, youLabel,
+    title, subtitle, labels, stepW, aggSeries, meValues, currentUserId,
+    colorMap, yAxisMode, placesDomainMax, maxPoints, rankLabelArr, meDelta,
+    youLabel, isDark,
   } = opts;
 
+  const board = makeBoardPalette(isDark);
+  const top = EXPORT_PLOT_TOP;
+  const bottom = EXPORT_PLOT_BOTTOM;
   const nSteps = labels.length;
   const plotW = Math.max(600, PAD_L + (nSteps - 1) * stepW + PAD_R);
   const totalW = GUTTER_W + plotW;
 
   const xFor = (i: number) => GUTTER_W + PAD_L + i * stepW;
-  const yFor = (rank: number) =>
-    PLOT_TOP + ((PLOT_BOTTOM - PLOT_TOP) * (rank - 1)) / Math.max(1, domainMax - 1);
+  const yFor = (v: number) =>
+    yAxisMode === "places"
+      ? yPlaces(v, top, bottom, placesDomainMax)
+      : yPoints(v, top, bottom, maxPoints);
   const esc = (s: string) =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const fmtLabel = (v: number) => yAxisMode === "places" ? `${v}º` : `${v}`;
 
   const gutterPart = rankLabelArr
-    .map(
-      (r) =>
-        `<text x="${GUTTER_W - 8}" y="${yFor(r) + 4}" fill="${CREAM}" fill-opacity="0.5" font-size="11" font-weight="600" text-anchor="end">${r}º</text>`
-    )
-    .join("");
+    .map((r) =>
+      `<text x="${GUTTER_W - 8}" y="${yFor(r) + 4}" fill="${board.text}" fill-opacity="${board.textOp}" font-size="11" font-weight="600" text-anchor="end">${esc(fmtLabel(r))}</text>`
+    ).join("");
 
   const gridPart = rankLabelArr
-    .map(
-      (r) =>
-        `<line x1="${GUTTER_W}" y1="${yFor(r)}" x2="${totalW}" y2="${yFor(r)}" stroke="${CREAM}" stroke-opacity="0.06"/>`
-    )
-    .join("");
+    .map((r) =>
+      `<line x1="${GUTTER_W}" y1="${yFor(r)}" x2="${totalW}" y2="${yFor(r)}" stroke="${board.text}" stroke-opacity="${board.gridOpacity}"/>`
+    ).join("");
 
   const tickPart = labels
     .map((label, i) => {
       const x = xFor(i);
       const last = i === nSteps - 1;
-      return `<line x1="${x}" y1="${PLOT_TOP - 8}" x2="${x}" y2="${PLOT_BOTTOM + 8}" stroke="${CREAM}" stroke-opacity="0.05"/>
-<text x="${x}" y="${PLOT_TOP - 14}" fill="${last ? GOLD : CREAM}" fill-opacity="${last ? "1" : "0.6"}" font-size="9" font-weight="${last ? "700" : "500"}" text-anchor="end" transform="rotate(-50,${x},${PLOT_TOP - 14})">${esc(label)}</text>`;
-    })
-    .join("");
+      return (
+        `<line x1="${x}" y1="${top - 8}" x2="${x}" y2="${bottom + 8}" stroke="${board.text}" stroke-opacity="0.05"/>` +
+        `<text x="${x}" y="${top - 14}" fill="${last ? board.tickLastColor : board.text}" fill-opacity="${last ? "1" : board.textOp}" font-size="9" font-weight="${last ? "700" : "500"}" text-anchor="end" transform="rotate(-50,${x},${top - 14})">${esc(label)}</text>`
+      );
+    }).join("");
 
   const otherPart = aggSeries
     .filter((s) => s.userId !== currentUserId)
     .map((s) => {
-      const color = colorMap.get(s.userId) ?? OTHER_FALLBACK;
-      const pts = s.aggRanks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ");
-      const lr = s.aggRanks.at(-1);
+      const color = colorMap.get(s.userId) ?? board.fallback;
+      const pts = s.values.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
+      const lv = s.values.at(-1);
       const lx = xFor(nSteps - 1);
-      return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.55" stroke-linecap="round" stroke-linejoin="round"/>
-${lr !== undefined ? `<circle cx="${lx}" cy="${yFor(lr)}" r="3" fill="${color}"/><text x="${lx + 8}" y="${yFor(lr) + 4}" fill="${color}" fill-opacity="0.85" font-size="9" font-weight="600">${esc(initials(s.displayName))}</text>` : ""}`;
-    })
-    .join("");
+      return (
+        `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-opacity="0.55" stroke-linecap="round" stroke-linejoin="round"/>` +
+        (lv !== undefined
+          ? `<circle cx="${lx}" cy="${yFor(lv)}" r="3" fill="${color}"/><text x="${lx + 8}" y="${yFor(lv) + 4}" fill="${color}" fill-opacity="0.85" font-size="9" font-weight="600">${esc(initials(s.displayName))}</text>`
+          : "")
+      );
+    }).join("");
 
   const mePart = (() => {
-    if (!meAggRanks || meAggRanks.length === 0) return "";
-    const pts = meAggRanks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ");
-    const lr = meAggRanks.at(-1)!;
+    if (!meValues || meValues.length === 0) return "";
+    const pts = meValues.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
+    const lv = meValues.at(-1)!;
     const lx = xFor(nSteps - 1);
-    const ly = yFor(lr);
-    const dots = meAggRanks
+    const ly = yFor(lv);
+    const dots = meValues
       .slice(0, -1)
-      .map(
-        (r, i) =>
-          `<circle cx="${xFor(i)}" cy="${yFor(r)}" r="2.5" fill="${NAVY}" stroke="${GOLD_LIGHT}" stroke-width="1.5"/>`
-      )
+      .map((v, i) => `<circle cx="${xFor(i)}" cy="${yFor(v)}" r="2.5" fill="${board.waypointFill}" stroke="${GOLD_LIGHT}" stroke-width="1.5"/>`)
       .join("");
     const pill =
       meDelta !== 0
         ? `<g transform="translate(${lx + 16},${ly - 22})"><rect x="0" y="0" width="30" height="17" rx="8.5" fill="${meDelta > 0 ? SUCCESS : DANGER}"/><path d="${meDelta > 0 ? "M6 11 l4 -5 l4 5" : "M6 7 l4 5 l4 -5"}" fill="none" stroke="#FFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="21" y="12.5" fill="#FFF" font-size="10" font-weight="800" text-anchor="middle">${Math.abs(meDelta)}</text></g>`
         : "";
-    return `<polyline points="${pts}" fill="none" stroke="${GOLD}" stroke-width="6" stroke-opacity="0.12" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="${pts}" fill="none" stroke="${GOLD}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-${dots}
-<circle cx="${lx}" cy="${ly}" r="13" fill="${GOLD}"/>
-<circle cx="${lx}" cy="${ly}" r="13" fill="none" stroke="${CREAM}" stroke-width="1.5"/>
-<text x="${lx}" y="${ly + 4.5}" fill="${NAVY}" font-size="11" font-weight="800" text-anchor="middle">${esc(youLabel)}</text>${pill}`;
+    return (
+      `<polyline points="${pts}" fill="none" stroke="${GOLD}" stroke-width="6" stroke-opacity="0.12" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<polyline points="${pts}" fill="none" stroke="${GOLD}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+      dots +
+      `<circle cx="${lx}" cy="${ly}" r="13" fill="${GOLD}"/>` +
+      `<circle cx="${lx}" cy="${ly}" r="13" fill="none" stroke="${CREAM}" stroke-width="1.5"/>` +
+      `<text x="${lx}" y="${ly + 4.5}" fill="${NAVY}" font-size="11" font-weight="800" text-anchor="middle">${esc(youLabel)}</text>` +
+      pill
+    );
   })();
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${VBH}" font-family="system-ui,-apple-system,sans-serif">
-<rect width="${totalW}" height="${VBH}" fill="${NAVY_DEEP}"/>
-<text x="${GUTTER_W + PAD_L}" y="24" fill="${CREAM}" font-size="15" font-weight="700">${esc(title)}</text>
-<text x="${GUTTER_W + PAD_L}" y="42" fill="${CREAM}" font-size="12" opacity="0.55">${esc(subtitle)}</text>
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${EXPORT_VBH}" font-family="system-ui,-apple-system,sans-serif">
+<rect width="${totalW}" height="${EXPORT_VBH}" fill="${board.bg}"/>
+<text x="${GUTTER_W + PAD_L}" y="24" fill="${board.text}" font-size="15" font-weight="700">${esc(title)}</text>
+<text x="${GUTTER_W + PAD_L}" y="42" fill="${board.text}" font-size="12" opacity="${board.textOp}">${esc(subtitle)}</text>
 ${gutterPart}${gridPart}${tickPart}${otherPart}${mePart}
 </svg>`;
 }
@@ -177,54 +236,95 @@ export function TrajectorySection({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
+  // ── State ────────────────────────────────────────────────────────────────────
   const [open, setOpen] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("round");
+  const [yAxisMode, setYAxisMode] = useState<YAxisMode>("places");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(series.map((s) => s.userId))
   );
-  // Three independent hover/pin sources → one effective highlight.
   const [panelHoveredId, setPanelHoveredId] = useState<string | null>(null);
   const [chartHoveredId, setChartHoveredId] = useState<string | null>(null);
   const [pinnedId, setPinnedId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<"png" | "pdf" | null>(null);
 
-  const effectiveHighlightId = pinnedId ?? chartHoveredId ?? panelHoveredId;
+  // X-axis range keyed by view mode so switching modes never resets the sibling ranges.
+  // Each mode starts as [0, 99999] (full range); clamped to totalSteps-1 at use time.
+  const [rangeByMode, setRangeByMode] = useState<Record<ViewMode, [number, number]>>({
+    round: [0, 99999],
+    day: [0, 99999],
+    match: [0, 99999],
+  });
 
-  // Esc exits fullscreen.
+  // ── Refs ─────────────────────────────────────────────────────────────────────
+  const brushDragRef = useRef<{
+    target: "left" | "right" | "middle";
+    containerWidth: number;
+    startClientX: number;
+    startRangeStart: number;
+    startRangeEnd: number;
+  } | null>(null);
+
+  // ── Palettes ─────────────────────────────────────────────────────────────────
+  const board = makeBoardPalette(isDark);
+  const panel = makePanelPalette(isDark);
+
+  // ── Fullscreen / Esc ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isFullscreen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsFullscreen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [isFullscreen]);
 
-  // Prevent body scroll while fullscreen.
   useEffect(() => {
     document.body.style.overflow = isFullscreen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [isFullscreen]);
 
-  // ── Derived data ────────────────────────────────────────────────────────────
+  // plotH: derive during render so there's no extra setState-in-effect cycle.
+  // window may be undefined during SSR; isFullscreen starts false so no hydration mismatch.
+  const plotH =
+    isFullscreen && typeof window !== "undefined"
+      ? Math.max(400, window.innerHeight - 280)
+      : DEFAULT_PLOT_H;
+
+  // ── Derived: plot top/bottom ──────────────────────────────────────────────────
+  const plotTop = Math.round(plotH * PLOT_TOP_FRAC);
+  const plotBottom = Math.round(plotH * PLOT_BOTTOM_FRAC);
+
+  // ── Sorted players ────────────────────────────────────────────────────────────
   const sorted = useMemo(
     () => [...series].sort((a, b) => finalRank(a) - finalRank(b)),
     [series]
   );
 
+  // ── Color map ─────────────────────────────────────────────────────────────────
   const colorMap = useMemo(() => {
     const map = new Map<string, string>();
-    sorted.forEach((s, i) => map.set(s.userId, playerColor(i, s.userId === currentUserId)));
+    sorted.forEach((s, i) => map.set(s.userId, playerColor(i, s.userId === currentUserId, isDark)));
     return map;
-  }, [sorted, currentUserId]);
+  }, [sorted, currentUserId, isDark]);
 
+  // ── View aggregation ─────────────────────────────────────────────────────────
   const displayData = useMemo((): {
     labels: string[];
     getSeriesRanks: (s: RankHistorySeries) => number[];
+    getSeriesPoints: (s: RankHistorySeries) => number[];
     stepW: number;
     useViewBox: boolean;
   } => {
     if (viewMode === "match") {
-      return { labels: stepLabels, getSeriesRanks: (s) => s.ranks, stepW: STEP_W.match, useViewBox: false };
+      return {
+        labels: stepLabels,
+        getSeriesRanks: (s) => s.ranks,
+        getSeriesPoints: (s) => s.points,
+        stepW: STEP_W.match,
+        useViewBox: false,
+      };
     }
     const keyOf = (i: number): string =>
       viewMode === "day" ? (stepDates[i] ?? "") : (stepRoundKeys[i] ?? "");
@@ -240,60 +340,111 @@ export function TrajectorySection({
       viewMode === "day"
         ? uniqueKeys.map((d) => d.slice(5).replace("-", "/"))
         : uniqueKeys.map((k) => SHORT_LABEL[k.replace(/^rounds\./, "")] ?? k.replace(/^rounds\./, ""));
+
+    const getSeriesRanks = (s: RankHistorySeries) =>
+      uniqueKeys.map((k) => {
+        const idx = lastIndexOf.get(k) ?? s.ranks.length - 1;
+        return s.ranks[idx] ?? s.ranks.at(-1) ?? 1;
+      });
+    const getSeriesPoints = (s: RankHistorySeries) =>
+      uniqueKeys.map((k) => {
+        const idx = lastIndexOf.get(k) ?? s.points.length - 1;
+        return s.points[idx] ?? s.points.at(-1) ?? 0;
+      });
+
     return {
       labels,
-      getSeriesRanks: (s) =>
-        uniqueKeys.map((k) => {
-          const idx = lastIndexOf.get(k) ?? s.ranks.length - 1;
-          return s.ranks[idx] ?? s.ranks.at(-1) ?? 1;
-        }),
+      getSeriesRanks,
+      getSeriesPoints,
       stepW: STEP_W[viewMode],
       useViewBox: true,
     };
   }, [viewMode, stepLabels, stepDates, stepRoundKeys]);
 
-  const displayLabels = displayData.labels;
-  const nSteps = displayLabels.length;
+  const allLabels = displayData.labels;
+  const totalSteps = allLabels.length;
   const currentStepW = displayData.stepW;
-  const plotW = Math.max(600, PAD_L + (nSteps - 1) * currentStepW + PAD_R);
 
+  // Per-mode range helpers
+  const [rangeStart, rangeEnd] = rangeByMode[viewMode]!;
+  const setRangeStart = (v: number) =>
+    setRangeByMode((prev) => ({ ...prev, [viewMode]: [v, prev[viewMode]![1]!] as [number, number] }));
+  const setRangeEnd = (v: number) =>
+    setRangeByMode((prev) => ({ ...prev, [viewMode]: [prev[viewMode]![0]!, v] as [number, number] }));
+
+  // Clamped effective window
+  const effectiveStart = Math.max(0, Math.min(rangeStart, totalSteps - 2));
+  const effectiveEnd = Math.max(effectiveStart + 1, Math.min(rangeEnd, totalSteps - 1));
+  const displayLabels = allLabels.slice(effectiveStart, effectiveEnd + 1);
+  const nSteps = displayLabels.length;
+  const plotW = Math.max(300, PAD_L + (nSteps - 1) * currentStepW + PAD_R);
   const xFor = (i: number) => PAD_L + i * currentStepW;
 
+  // ── Windowed values ──────────────────────────────────────────────────────────
+  function getWindowedValues(s: RankHistorySeries, mode: YAxisMode): number[] {
+    const full = mode === "places"
+      ? displayData.getSeriesRanks(s)
+      : displayData.getSeriesPoints(s);
+    return full.slice(effectiveStart, effectiveEnd + 1);
+  }
+
+  // ── Selected series ───────────────────────────────────────────────────────────
   const selectedSeries = useMemo(
     () => sorted.filter((s) => selected.has(s.userId)),
     [sorted, selected]
   );
 
-  const domainMax = useMemo(() => {
-    if (selectedSeries.length === 0) return 2;
-    return Math.max(2, ...selectedSeries.flatMap((s) => displayData.getSeriesRanks(s)));
-  }, [selectedSeries, displayData]);
+  // ── Y axis domain ─────────────────────────────────────────────────────────────
+  // Places: always the full player count — selection never rescales the axis
+  const placesDomainMax = playerCount;
 
-  const yFor = (rank: number) =>
-    PLOT_TOP + ((PLOT_BOTTOM - PLOT_TOP) * (rank - 1)) / Math.max(1, domainMax - 1);
+  // Points: max across ALL series at any step, stable to selection changes
+  const maxPoints = useMemo(() => {
+    if (series.length === 0) return 100;
+    return Math.max(1, ...series.flatMap((s) => s.points));
+  }, [series]);
 
-  const rankLabelArr = useMemo(() => {
-    const s = new Set<number>([1, domainMax]);
-    for (let r = 5; r < domainMax; r += 5) s.add(r);
-    return [...s].sort((a, b) => a - b);
-  }, [domainMax]);
+  const yFor = (v: number): number =>
+    yAxisMode === "places"
+      ? yPlaces(v, plotTop, plotBottom, placesDomainMax)
+      : yPoints(v, plotTop, plotBottom, maxPoints);
 
+  const rankLabelArr = useMemo((): number[] => {
+    if (yAxisMode === "places") {
+      const s = new Set<number>([1, placesDomainMax]);
+      for (let r = 5; r <= placesDomainMax; r += 5) s.add(r);
+      return [...s].sort((a, b) => a - b);
+    } else {
+      const step = maxPoints <= 50 ? 10 : maxPoints <= 200 ? 25 : 50;
+      const arr: number[] = [0];
+      for (let p = step; p < maxPoints; p += step) arr.push(p);
+      arr.push(maxPoints);
+      return arr;
+    }
+  }, [yAxisMode, placesDomainMax, maxPoints]);
+
+  // ── "Me" series ───────────────────────────────────────────────────────────────
   const meSeries = currentUserId
     ? (series.find((s) => s.userId === currentUserId) ?? null)
     : null;
   const meIsSelected = currentUserId !== null && selected.has(currentUserId);
-  const meRanks = meSeries ? displayData.getSeriesRanks(meSeries) : null;
+  const meValues = meSeries ? getWindowedValues(meSeries, yAxisMode) : null;
   const meDelta = (() => {
-    if (!meRanks || meRanks.length < 2) return 0;
-    return meRanks[meRanks.length - 2]! - meRanks[meRanks.length - 1]!;
+    if (!meValues || meValues.length < 2) return 0;
+    const a = meValues[meValues.length - 2]!;
+    const b = meValues[meValues.length - 1]!;
+    // positive = improved (moved up in ranks, or gained points)
+    return yAxisMode === "places" ? a - b : b - a;
   })();
 
-  // ── Highlight helpers ───────────────────────────────────────────────────────
+  // ── Highlight / dim ───────────────────────────────────────────────────────────
+  const effectiveHighlightId = pinnedId ?? chartHoveredId ?? panelHoveredId;
   const isHighlighted = (userId: string) =>
     effectiveHighlightId !== null && effectiveHighlightId === userId;
   const isDimmed = (userId: string) =>
     effectiveHighlightId !== null && effectiveHighlightId !== userId;
 
+  // ── Chart event handlers ──────────────────────────────────────────────────────
   const handleLineEnter = useCallback((userId: string) => setChartHoveredId(userId), []);
   const handleLineLeave = useCallback(() => setChartHoveredId(null), []);
   const handleLineClick = useCallback(
@@ -305,7 +456,7 @@ export function TrajectorySection({
   );
   const handleChartBgClick = useCallback(() => setPinnedId(null), []);
 
-  // ── Preset handlers ─────────────────────────────────────────────────────────
+  // ── Player preset handlers ────────────────────────────────────────────────────
   const selectAll = () => setSelected(new Set(series.map((s) => s.userId)));
   const selectNone = () => setSelected(new Set());
   const selectTop = (n: number) =>
@@ -318,7 +469,101 @@ export function TrajectorySection({
       return next;
     });
 
-  // ── Button style helpers (theme-aware) ──────────────────────────────────────
+  // ── X-axis range preset handlers ──────────────────────────────────────────────
+  const setLastN = (n: number) => {
+    setRangeStart(Math.max(0, totalSteps - n));
+    setRangeEnd(totalSteps - 1);
+  };
+  const setFullRange = () => { setRangeStart(0); setRangeEnd(99999); };
+  const isFullRange = effectiveStart === 0 && effectiveEnd === totalSteps - 1;
+  const isRangeMatch = (n: number | null): boolean => {
+    if (n === null) return isFullRange;
+    if (totalSteps <= n) return isFullRange;
+    return effectiveStart === totalSteps - n && effectiveEnd === totalSteps - 1;
+  };
+
+  const rangePresets: { labelKey: string; n: number | null }[] =
+    viewMode === "round"
+      ? [
+          { labelKey: "trajectoryLast3Rounds", n: 3 },
+          { labelKey: "trajectoryLast5Rounds", n: 5 },
+          { labelKey: "trajectoryAll", n: null },
+        ]
+      : viewMode === "day"
+      ? [
+          { labelKey: "trajectoryLast3Days", n: 3 },
+          { labelKey: "trajectoryLastWeek", n: 7 },
+          { labelKey: "trajectoryAll", n: null },
+        ]
+      : [
+          { labelKey: "trajectoryLast10Matches", n: 10 },
+          { labelKey: "trajectoryLast20Matches", n: 20 },
+          { labelKey: "trajectoryAll", n: null },
+        ];
+
+  // ── Brush drag handlers ───────────────────────────────────────────────────────
+  function handleBrushPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (totalSteps < 2) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const w = rect.width;
+    const leftPx = (effectiveStart / (totalSteps - 1)) * w;
+    const rightPx = (effectiveEnd / (totalSteps - 1)) * w;
+    const THRESHOLD = 12;
+
+    let target: "left" | "right" | "middle";
+    if (Math.abs(x - leftPx) <= THRESHOLD) {
+      target = "left";
+    } else if (Math.abs(x - rightPx) <= THRESHOLD) {
+      target = "right";
+    } else if (x > leftPx && x < rightPx) {
+      target = "middle";
+    } else {
+      // Click outside selection — snap nearest handle to clicked step
+      const clickedStep = Math.round((x / w) * (totalSteps - 1));
+      const midPx = (leftPx + rightPx) / 2;
+      if (x < midPx) {
+        setRangeStart(Math.max(0, Math.min(clickedStep, effectiveEnd - 1)));
+      } else {
+        setRangeEnd(Math.max(effectiveStart + 1, Math.min(clickedStep, totalSteps - 1)));
+      }
+      return;
+    }
+
+    e.currentTarget.setPointerCapture(e.pointerId);
+    brushDragRef.current = {
+      target,
+      containerWidth: w,
+      startClientX: e.clientX,
+      startRangeStart: effectiveStart,
+      startRangeEnd: effectiveEnd,
+    };
+  }
+
+  function handleBrushPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = brushDragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startClientX;
+    const stepsPerPx = (totalSteps - 1) / d.containerWidth;
+    const dSteps = Math.round(dx * stepsPerPx);
+
+    if (d.target === "left") {
+      setRangeStart(Math.max(0, Math.min(d.startRangeStart + dSteps, d.startRangeEnd - 1)));
+    } else if (d.target === "right") {
+      setRangeEnd(Math.max(d.startRangeStart + 1, Math.min(d.startRangeEnd + dSteps, totalSteps - 1)));
+    } else {
+      const windowSize = d.startRangeEnd - d.startRangeStart;
+      const newStart = Math.max(0, Math.min(d.startRangeStart + dSteps, totalSteps - 1 - windowSize));
+      setRangeStart(newStart);
+      setRangeEnd(newStart + windowSize);
+    }
+  }
+
+  function handleBrushPointerUp() {
+    brushDragRef.current = null;
+  }
+
+  // ── Button styles ─────────────────────────────────────────────────────────────
   const viewBtnStyle = (active: boolean): React.CSSProperties => ({
     padding: "3px 10px",
     borderRadius: 6,
@@ -330,15 +575,19 @@ export function TrajectorySection({
     border: `1px solid ${active ? GOLD : (isDark ? `${GOLD}44` : "rgba(0,0,0,0.2)")}`,
   });
 
-  // ── Download ────────────────────────────────────────────────────────────────
-  const buildSvgString = useCallback((): string => {
+  // ── Download ──────────────────────────────────────────────────────────────────
+  const highlightedSeries =
+    effectiveHighlightId && selected.has(effectiveHighlightId)
+      ? selectedSeries.find((s) => s.userId === effectiveHighlightId) ?? null
+      : null;
+
+  function buildSvgString(): string {
     const aggSeries = selectedSeries.map((s) => ({
       userId: s.userId,
       displayName: s.displayName,
-      aggRanks: displayData.getSeriesRanks(s),
+      values: getWindowedValues(s, yAxisMode),
     }));
-    const meAggRanks =
-      meSeries && meIsSelected ? displayData.getSeriesRanks(meSeries) : null;
+    const mev = meSeries && meIsSelected ? getWindowedValues(meSeries, yAxisMode) : null;
     return buildExportSvg({
       title: t("trajectoryTitle"),
       subtitle:
@@ -350,21 +599,20 @@ export function TrajectorySection({
       labels: displayLabels,
       stepW: currentStepW,
       aggSeries,
-      meAggRanks,
+      meValues: mev,
       currentUserId,
       colorMap,
-      domainMax,
+      yAxisMode,
+      placesDomainMax,
+      maxPoints,
       rankLabelArr,
       meDelta,
       youLabel: t("trajectoryYou"),
+      isDark,
     });
-  }, [
-    selectedSeries, displayData, meSeries, meIsSelected, displayLabels,
-    viewMode, currentUserId, colorMap, domainMax, rankLabelArr, meDelta,
-    currentStepW, t,
-  ]);
+  }
 
-  const handleDownloadPng = useCallback(async () => {
+  async function handleDownloadPng() {
     if (downloading) return;
     setDownloading("png");
     try {
@@ -375,10 +623,12 @@ export function TrajectorySection({
         const img = new Image();
         img.onload = () => {
           const scale = 2;
-          const totalW = GUTTER_W + plotW;
+          const nw = displayLabels.length;
+          const exportPlotW = Math.max(600, PAD_L + (nw - 1) * currentStepW + PAD_R);
+          const totalW = GUTTER_W + exportPlotW;
           const canvas = document.createElement("canvas");
           canvas.width = totalW * scale;
-          canvas.height = VBH * scale;
+          canvas.height = EXPORT_VBH * scale;
           const ctx = canvas.getContext("2d");
           if (!ctx) { URL.revokeObjectURL(url); resolve(); return; }
           ctx.scale(scale, scale);
@@ -402,15 +652,16 @@ export function TrajectorySection({
     } finally {
       setDownloading(null);
     }
-  }, [downloading, buildSvgString, plotW]);
+  }
 
-  const handleDownloadPdf = useCallback(() => {
+  function handleDownloadPdf() {
     if (downloading) return;
     setDownloading("pdf");
     try {
       const svgStr = buildSvgString();
+      const bgColor = makeBoardPalette(isDark).bg;
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>body{margin:0;background:${NAVY_DEEP}}svg{display:block;max-width:100%}
+<style>body{margin:0;background:${bgColor}}svg{display:block;max-width:100%}
 @media print{@page{size:landscape;margin:5mm}}</style>
 </head><body>${svgStr}<script>window.print();<\/script></body></html>`;
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -421,15 +672,9 @@ export function TrajectorySection({
     } finally {
       setDownloading(null);
     }
-  }, [downloading, buildSvgString]);
+  }
 
-  // ── Hover info overlay (HTML, always stays in visible area) ─────────────────
-  const highlightedSeries =
-    effectiveHighlightId && selected.has(effectiveHighlightId)
-      ? selectedSeries.find((s) => s.userId === effectiveHighlightId) ?? null
-      : null;
-
-  // ── Header ──────────────────────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────────
   const header = (
     <div
       role="button"
@@ -444,13 +689,16 @@ export function TrajectorySection({
       }}
       className="flex cursor-pointer select-none items-center justify-between gap-2 rounded-md -mx-1 px-1 py-1 transition-colors hover:bg-muted/20"
     >
-      <div>
-        <h2 className="dark:text-foreground text-lg font-bold text-[#1A2855]">
+      <div className="flex flex-col gap-0.5">
+        <h2
+          className="font-bold"
+          style={{ fontSize: "1.125rem", color: isDark ? CREAM : NAVY }}
+        >
           {t("trajectoryTitle")}
         </h2>
-        <p className="text-muted-foreground text-sm">{t("trajectorySubtitle")}</p>
+        <p className="text-sm text-muted-foreground">{t("trajectorySubtitle")}</p>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-1.5">
         <Button
           variant="outline"
           size="sm"
@@ -466,6 +714,10 @@ export function TrajectorySection({
     </div>
   );
 
+  // ── Brush percentage helpers ──────────────────────────────────────────────────
+  const pct = (step: number) =>
+    totalSteps <= 1 ? 0 : (step / (totalSteps - 1)) * 100;
+
   return (
     <section
       className="print:hidden"
@@ -479,7 +731,15 @@ export function TrajectorySection({
               padding: "20px 24px",
               background: isDark ? "#09090b" : "#ffffff",
             }
-          : { display: "flex", flexDirection: "column", gap: 12 }
+          : {
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              borderRadius: 8,
+              border: isDark ? "1px dashed #2E3D7A" : "1px dashed #D9CFBE",
+              background: isDark ? "rgba(36,50,96,0.3)" : "rgba(232,224,208,0.3)",
+              padding: 16,
+            }
       }
     >
       {header}
@@ -492,26 +752,49 @@ export function TrajectorySection({
 
       {open && nSteps >= 2 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* ── Control bar ─────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1">
-              {(["round", "day", "match"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  style={viewBtnStyle(viewMode === mode)}
-                >
-                  {t(
-                    mode === "round"
-                      ? "trajectoryViewByRound"
-                      : mode === "day"
-                      ? "trajectoryViewByDay"
-                      : "trajectoryViewByMatch"
-                  )}
-                </button>
-              ))}
+
+          {/* ── Control bar ───────────────────────────────────────────────── */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            {/* View mode + Y-axis toggle */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {/* View mode */}
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["round", "day", "match"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    style={viewBtnStyle(viewMode === mode)}
+                  >
+                    {t(
+                      mode === "round"
+                        ? "trajectoryViewByRound"
+                        : mode === "day"
+                        ? "trajectoryViewByDay"
+                        : "trajectoryViewByMatch"
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Separator */}
+              <div style={{ width: 1, height: 16, background: isDark ? `${GOLD}33` : `${NAVY}22` }} />
+
+              {/* Y-axis toggle */}
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["places", "points"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setYAxisMode(mode)}
+                    style={viewBtnStyle(yAxisMode === mode)}
+                  >
+                    {t(mode === "places" ? "trajectoryAxisPlaces" : "trajectoryAxisPoints")}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
+
+            {/* Downloads */}
+            <div style={{ display: "flex", gap: 6 }}>
               <Button
                 variant="outline"
                 size="sm"
@@ -531,386 +814,516 @@ export function TrajectorySection({
             </div>
           </div>
 
-          {/* ── Chart + panel ────────────────────────────────────────────── */}
-          <div className="flex flex-col gap-4 lg:flex-row">
-            {/* Chart */}
-            <div className="min-w-0 flex-1">
+          {/* ── Chart board ───────────────────────────────────────────────── */}
+          <div
+            style={{
+              background: board.bg,
+              borderRadius: 12,
+              border: `1px solid ${board.border}`,
+              position: "relative",
+            }}
+          >
+            {/* Hover / pin name overlay */}
+            {highlightedSeries && (() => {
+              const s = highlightedSeries;
+              const vals = getWindowedValues(s, yAxisMode);
+              const lv = vals.at(-1) ?? (yAxisMode === "places" ? 1 : 0);
+              const color = colorMap.get(s.userId) ?? board.fallback;
+              const isPinned = pinnedId === s.userId;
+              const label = yAxisMode === "places" ? `${lv}º` : `${lv}`;
+              return (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 12,
+                    background: board.hoverBg,
+                    border: `1.5px solid ${color}`,
+                    borderRadius: 8,
+                    padding: "5px 12px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    zIndex: 10,
+                    pointerEvents: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ color: board.text, opacity: board.textOp, fontWeight: 400, fontSize: 11 }}>
+                    {label}
+                  </span>
+                  {s.displayName}
+                  {isPinned && <Pin size={11} style={{ color: GOLD, flexShrink: 0 }} />}
+                </div>
+              );
+            })()}
+
+            <div style={{ display: "flex", alignItems: "flex-start", paddingTop: 14 }}>
+              {/* Fixed rank gutter */}
+              <svg
+                width={GUTTER_W}
+                height={plotH}
+                style={{ flexShrink: 0 }}
+                aria-hidden="true"
+              >
+                {rankLabelArr.map((r) => (
+                  <text
+                    key={r}
+                    x={GUTTER_W - 8}
+                    y={yFor(r) + 4}
+                    fill={board.text}
+                    fillOpacity={board.textOp}
+                    fontSize="11"
+                    fontWeight="600"
+                    textAnchor="end"
+                  >
+                    {yAxisMode === "places" ? `${r}º` : `${r}`}
+                  </text>
+                ))}
+              </svg>
+
+              {/* Scrollable plot */}
               <div
                 style={{
-                  background: NAVY_DEEP,
-                  borderRadius: 12,
-                  border: `1px solid ${GOLD}33`,
-                  padding: "14px 0 12px 0",
-                  position: "relative", // anchor for the hover overlay
+                  overflowX: displayData.useViewBox ? "hidden" : "auto",
+                  flexGrow: 1,
                 }}
               >
-                {/* Hover / pin name overlay — always visible, top-right corner */}
-                {highlightedSeries && (() => {
-                  const s = highlightedSeries;
-                  const ranks = displayData.getSeriesRanks(s);
-                  const lr = ranks.at(-1) ?? 1;
-                  const color = colorMap.get(s.userId) ?? OTHER_FALLBACK;
-                  const isPinned = pinnedId === s.userId;
-                  return (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 10,
-                        right: 12,
-                        background: NAVY,
-                        border: `1.5px solid ${color}`,
-                        borderRadius: 8,
-                        padding: "5px 12px",
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        zIndex: 10,
-                        pointerEvents: "none",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <span style={{ color: CREAM, opacity: 0.55, fontWeight: 400, fontSize: 11 }}>
-                        {lr}º
-                      </span>
-                      {s.displayName}
-                      {isPinned && (
-                        <Pin
-                          size={11}
-                          style={{ color: GOLD, flexShrink: 0 }}
-                        />
-                      )}
-                    </div>
-                  );
-                })()}
+                <svg
+                  width={displayData.useViewBox ? "100%" : plotW}
+                  height={plotH}
+                  viewBox={displayData.useViewBox ? `0 0 ${plotW} ${plotH}` : undefined}
+                  role="img"
+                  style={{ display: "block", cursor: "default" }}
+                  onClick={handleChartBgClick}
+                >
+                  <title>{t("trajectoryTitle")}</title>
+                  <desc>{t("trajectoryAria")}</desc>
 
-                <div style={{ display: "flex", alignItems: "flex-start" }}>
-                  {/* Fixed rank gutter */}
-                  <svg
-                    width={GUTTER_W}
-                    height={VBH}
-                    style={{ flexShrink: 0 }}
-                    aria-hidden="true"
-                  >
-                    {rankLabelArr.map((r) => (
-                      <text
-                        key={r}
-                        x={GUTTER_W - 8}
-                        y={yFor(r) + 4}
-                        fill={CREAM}
-                        fillOpacity="0.5"
-                        fontSize="11"
-                        fontWeight="600"
-                        textAnchor="end"
-                      >
-                        {r}º
-                      </text>
-                    ))}
-                  </svg>
+                  <defs>
+                    <linearGradient id="trajMe" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0" stopColor={GOLD} />
+                      <stop offset="1" stopColor={GOLD_LIGHT} />
+                    </linearGradient>
+                  </defs>
 
-                  {/* Scrollable plot */}
-                  <div
-                    style={{
-                      overflowX: displayData.useViewBox ? "hidden" : "auto",
-                      flexGrow: 1,
-                    }}
-                  >
-                    <svg
-                      width={displayData.useViewBox ? "100%" : plotW}
-                      height={VBH}
-                      viewBox={displayData.useViewBox ? `0 0 ${plotW} ${VBH}` : undefined}
-                      role="img"
-                      style={{ display: "block", cursor: "default" }}
-                      onClick={handleChartBgClick}
-                    >
-                      <title>{t("trajectoryTitle")}</title>
-                      <desc>{t("trajectoryAria")}</desc>
+                  {/* Gridlines */}
+                  {rankLabelArr.map((r) => (
+                    <line
+                      key={`gl-${r}`}
+                      x1={0} y1={yFor(r)} x2={plotW} y2={yFor(r)}
+                      stroke={board.text}
+                      strokeOpacity={board.gridOpacity}
+                    />
+                  ))}
 
-                      <defs>
-                        <linearGradient id="trajMe" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0" stopColor={GOLD} />
-                          <stop offset="1" stopColor={GOLD_LIGHT} />
-                        </linearGradient>
-                      </defs>
-
-                      {/* Gridlines */}
-                      {rankLabelArr.map((r) => (
+                  {/* X-axis ticks + labels */}
+                  {displayLabels.map((label, i) => {
+                    const x = xFor(i);
+                    const last = i === nSteps - 1;
+                    return (
+                      <g key={`step-${i}`}>
                         <line
-                          key={`rl-${r}`}
-                          x1={0} y1={yFor(r)} x2={plotW} y2={yFor(r)}
-                          stroke={CREAM} strokeOpacity="0.06"
+                          x1={x} y1={plotTop - 8} x2={x} y2={plotBottom + 8}
+                          stroke={board.text} strokeOpacity="0.05"
                         />
-                      ))}
+                        <text
+                          x={x} y={plotTop - 14}
+                          fill={last ? board.tickLastColor : board.text}
+                          fillOpacity={last ? 1 : board.textOp}
+                          fontSize="9"
+                          fontWeight={last ? "700" : "500"}
+                          textAnchor="end"
+                          transform={`rotate(-50, ${x}, ${plotTop - 14})`}
+                        >
+                          {label}
+                        </text>
+                      </g>
+                    );
+                  })}
 
-                      {/* X-axis ticks + labels */}
-                      {displayLabels.map((label, i) => {
-                        const x = xFor(i);
-                        const last = i === nSteps - 1;
-                        return (
-                          <g key={`step-${i}`}>
-                            <line
-                              x1={x} y1={PLOT_TOP - 8} x2={x} y2={PLOT_BOTTOM + 8}
-                              stroke={CREAM} strokeOpacity="0.05"
-                            />
-                            <text
-                              x={x} y={PLOT_TOP - 14}
-                              fill={last ? GOLD : CREAM}
-                              fillOpacity={last ? 1 : 0.6}
-                              fontSize="9"
-                              fontWeight={last ? "700" : "500"}
-                              textAnchor="end"
-                              transform={`rotate(-50, ${x}, ${PLOT_TOP - 14})`}
-                            >
-                              {label}
-                            </text>
-                          </g>
-                        );
-                      })}
-
-                      {/* ── Other-player lines ──────────────────────────── */}
-                      {selectedSeries
-                        .filter((s) => s.userId !== currentUserId)
-                        .map((s) => {
-                          const color = colorMap.get(s.userId) ?? OTHER_FALLBACK;
-                          const hl = isHighlighted(s.userId);
-                          const dm = isDimmed(s.userId);
-                          const ranks = displayData.getSeriesRanks(s);
-                          const pts = ranks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ");
-                          const lr = ranks.at(-1);
-                          return (
-                            <g key={s.userId}>
-                              {/* Visible line */}
-                              <polyline
-                                points={pts}
-                                fill="none"
-                                stroke={color}
-                                strokeWidth={hl ? 3.5 : 2}
-                                strokeOpacity={dm ? 0.1 : hl ? 1 : 0.55}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                style={{ pointerEvents: "none" }}
-                              >
-                                <title>{s.displayName}</title>
-                              </polyline>
-                              {/* End dot */}
-                              {lr !== undefined && (
-                                <circle
-                                  cx={xFor(nSteps - 1)} cy={yFor(lr)}
-                                  r={hl ? 5 : 3}
-                                  fill={color}
-                                  fillOpacity={dm ? 0.12 : 1}
-                                  style={{ pointerEvents: "none" }}
-                                />
-                              )}
-                              {/* Initials label when few lines shown */}
-                              {selected.size <= 12 && lr !== undefined && (
-                                <text
-                                  x={xFor(nSteps - 1) + 8} y={yFor(lr) + 4}
-                                  fill={color} fillOpacity={dm ? 0.12 : 0.85}
-                                  fontSize="9" fontWeight="600"
-                                  style={{ pointerEvents: "none" }}
-                                >
-                                  {initials(s.displayName)}
-                                </text>
-                              )}
-                              {/* Wide transparent hitbox for hover/click */}
-                              <polyline
-                                points={pts}
-                                fill="none"
-                                stroke="transparent"
-                                strokeWidth={20}
-                                style={{ cursor: "pointer" }}
-                                onMouseEnter={() => handleLineEnter(s.userId)}
-                                onMouseLeave={handleLineLeave}
-                                onClick={(e) => handleLineClick(e, s.userId)}
-                              />
-                            </g>
-                          );
-                        })}
-
-                      {/* ── Me — gold, always on top ──────────────────────── */}
-                      {meSeries && meIsSelected && meRanks && (
-                        <g>
-                          {/* Glow */}
+                  {/* ── Other-player lines ─────────────────────────────────── */}
+                  {selectedSeries
+                    .filter((s) => s.userId !== currentUserId)
+                    .map((s) => {
+                      const color = colorMap.get(s.userId) ?? board.fallback;
+                      const hl = isHighlighted(s.userId);
+                      const dm = isDimmed(s.userId);
+                      const vals = getWindowedValues(s, yAxisMode);
+                      const pts = vals.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
+                      const lv = vals.at(-1);
+                      return (
+                        <g key={s.userId}>
                           <polyline
-                            points={meRanks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ")}
-                            fill="none" stroke={GOLD} strokeWidth={8} strokeOpacity={0.14}
-                            strokeLinecap="round" strokeLinejoin="round"
-                            style={{ pointerEvents: "none" }}
-                          />
-                          {/* Main line */}
-                          <polyline
-                            points={meRanks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ")}
-                            fill="none" stroke="url(#trajMe)" strokeWidth={4}
-                            strokeOpacity={isDimmed(currentUserId!) ? 0.15 : 1}
-                            strokeLinecap="round" strokeLinejoin="round"
+                            points={pts}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth={hl ? 3.5 : 2}
+                            strokeOpacity={dm ? 0.1 : hl ? 1 : 0.55}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                             style={{ pointerEvents: "none" }}
                           >
-                            <title>{t("trajectoryYou")}</title>
+                            <title>{s.displayName}</title>
                           </polyline>
-                          {/* Waypoints */}
-                          {meRanks.slice(0, -1).map((r, i) => (
+                          {lv !== undefined && (
                             <circle
-                              key={`me-wp-${i}`}
-                              cx={xFor(i)} cy={yFor(r)} r="3"
-                              fill={NAVY} stroke={GOLD_LIGHT} strokeWidth="1.8"
+                              cx={xFor(nSteps - 1)} cy={yFor(lv)}
+                              r={hl ? 5 : 3}
+                              fill={color}
+                              fillOpacity={dm ? 0.12 : 1}
                               style={{ pointerEvents: "none" }}
                             />
-                          ))}
-                          {/* End circle */}
-                          <circle
-                            cx={xFor(nSteps - 1)} cy={yFor(meRanks.at(-1)!)} r={14}
-                            fill={GOLD} style={{ pointerEvents: "none" }}
-                          />
-                          <circle
-                            cx={xFor(nSteps - 1)} cy={yFor(meRanks.at(-1)!)} r={14}
-                            fill="none" stroke={CREAM} strokeWidth="1.5"
-                            style={{ pointerEvents: "none" }}
-                          />
-                          <text
-                            x={xFor(nSteps - 1)} y={yFor(meRanks.at(-1)!) + 4.5}
-                            fill={NAVY} fontSize="11" fontWeight="800" textAnchor="middle"
-                            style={{ pointerEvents: "none" }}
-                          >
-                            {t("trajectoryYou")}
-                          </text>
-                          {/* Delta pill */}
-                          {meDelta !== 0 && (
-                            <g
-                              transform={`translate(${xFor(nSteps - 1) + 16},${yFor(meRanks.at(-1)!) - 22})`}
+                          )}
+                          {selected.size <= 12 && lv !== undefined && (
+                            <text
+                              x={xFor(nSteps - 1) + 8} y={yFor(lv) + 4}
+                              fill={color} fillOpacity={dm ? 0.12 : 0.85}
+                              fontSize="9" fontWeight="600"
                               style={{ pointerEvents: "none" }}
                             >
-                              <rect x="0" y="0" width="30" height="17" rx="8.5"
-                                fill={meDelta > 0 ? SUCCESS : DANGER} />
-                              <path
-                                d={meDelta > 0 ? "M6 11 l4 -5 l4 5" : "M6 7 l4 5 l4 -5"}
-                                fill="none" stroke="#FFF" strokeWidth="1.8"
-                                strokeLinecap="round" strokeLinejoin="round"
-                              />
-                              <text x="21" y="12.5" fill="#FFF" fontSize="10"
-                                fontWeight="800" textAnchor="middle">
-                                {Math.abs(meDelta)}
-                              </text>
-                            </g>
+                              {initials(s.displayName)}
+                            </text>
                           )}
-                          {/* Hitbox for me */}
+                          {/* Wide transparent hitbox */}
                           <polyline
-                            points={meRanks.map((r, i) => `${xFor(i)},${yFor(r)}`).join(" ")}
-                            fill="none" stroke="transparent" strokeWidth={20}
+                            points={pts}
+                            fill="none"
+                            stroke="transparent"
+                            strokeWidth={20}
                             style={{ cursor: "pointer" }}
-                            onMouseEnter={() => handleLineEnter(currentUserId!)}
+                            onMouseEnter={() => handleLineEnter(s.userId)}
                             onMouseLeave={handleLineLeave}
-                            onClick={(e) => handleLineClick(e, currentUserId!)}
+                            onClick={(e) => handleLineClick(e, s.userId)}
                           />
                         </g>
+                      );
+                    })}
+
+                  {/* ── Me — gold, always on top ───────────────────────────── */}
+                  {meSeries && meIsSelected && meValues && (
+                    <g>
+                      {/* Glow */}
+                      <polyline
+                        points={meValues.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ")}
+                        fill="none" stroke={GOLD} strokeWidth={8} strokeOpacity={0.14}
+                        strokeLinecap="round" strokeLinejoin="round"
+                        style={{ pointerEvents: "none" }}
+                      />
+                      {/* Main line */}
+                      <polyline
+                        points={meValues.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ")}
+                        fill="none" stroke="url(#trajMe)" strokeWidth={4}
+                        strokeOpacity={isDimmed(currentUserId!) ? 0.15 : 1}
+                        strokeLinecap="round" strokeLinejoin="round"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        <title>{t("trajectoryYou")}</title>
+                      </polyline>
+                      {/* Waypoints */}
+                      {meValues.slice(0, -1).map((v, i) => (
+                        <circle
+                          key={`me-wp-${i}`}
+                          cx={xFor(i)} cy={yFor(v)} r="3"
+                          fill={board.waypointFill} stroke={GOLD_LIGHT} strokeWidth="1.8"
+                          style={{ pointerEvents: "none" }}
+                        />
+                      ))}
+                      {/* End circle */}
+                      <circle
+                        cx={xFor(nSteps - 1)} cy={yFor(meValues.at(-1)!)} r={14}
+                        fill={GOLD} style={{ pointerEvents: "none" }}
+                      />
+                      <circle
+                        cx={xFor(nSteps - 1)} cy={yFor(meValues.at(-1)!)} r={14}
+                        fill="none" stroke={CREAM} strokeWidth="1.5"
+                        style={{ pointerEvents: "none" }}
+                      />
+                      <text
+                        x={xFor(nSteps - 1)} y={yFor(meValues.at(-1)!) + 4.5}
+                        fill={NAVY} fontSize="11" fontWeight="800" textAnchor="middle"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {t("trajectoryYou")}
+                      </text>
+                      {/* Delta pill */}
+                      {meDelta !== 0 && (
+                        <g
+                          transform={`translate(${xFor(nSteps - 1) + 16},${yFor(meValues.at(-1)!) - 22})`}
+                          style={{ pointerEvents: "none" }}
+                        >
+                          <rect x="0" y="0" width="30" height="17" rx="8.5"
+                            fill={meDelta > 0 ? SUCCESS : DANGER} />
+                          <path
+                            d={meDelta > 0 ? "M6 11 l4 -5 l4 5" : "M6 7 l4 5 l4 -5"}
+                            fill="none" stroke="#FFF" strokeWidth="1.8"
+                            strokeLinecap="round" strokeLinejoin="round"
+                          />
+                          <text x="21" y="12.5" fill="#FFF" fontSize="10"
+                            fontWeight="800" textAnchor="middle">
+                            {Math.abs(meDelta)}
+                          </text>
+                        </g>
                       )}
-                    </svg>
-                  </div>
-                </div>
+                      {/* Hitbox */}
+                      <polyline
+                        points={meValues.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ")}
+                        fill="none" stroke="transparent" strokeWidth={20}
+                        style={{ cursor: "pointer" }}
+                        onMouseEnter={() => handleLineEnter(currentUserId!)}
+                        onMouseLeave={handleLineLeave}
+                        onClick={(e) => handleLineClick(e, currentUserId!)}
+                      />
+                    </g>
+                  )}
+                </svg>
               </div>
             </div>
 
-            {/* ── Side panel ───────────────────────────────────────────────── */}
-            <div className="shrink-0 lg:w-64">
+            {/* ── X-range controls (presets + brush) ────────────────────── */}
+            {totalSteps >= 3 && (
               <div
                 style={{
-                  background: NAVY,
-                  border: `1px solid ${GOLD}33`,
-                  borderRadius: 12,
-                  overflow: "hidden",
+                  padding: `8px ${PAD_R}px 10px ${GUTTER_W}px`,
+                  borderTop: `1px solid ${isDark ? `${CREAM}08` : `${NAVY}08`}`,
                 }}
               >
                 {/* Preset buttons */}
-                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${GOLD}22` }}>
-                  <p
-                    style={{
-                      color: CREAM, fontSize: 11, fontWeight: 600,
-                      letterSpacing: "0.05em", textTransform: "uppercase",
-                      marginBottom: 8, opacity: 0.7,
-                    }}
-                  >
-                    {t("trajectoryPlayers")}
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {(
-                      [
-                        { key: "trajectoryTop10", action: () => selectTop(10) },
-                        { key: "trajectoryTop25", action: () => selectTop(25) },
-                        { key: "trajectoryAll", action: selectAll },
-                        { key: "trajectoryNone", action: selectNone },
-                      ] as const
-                    ).map(({ key, action }) => (
-                      <button
-                        key={key}
-                        onClick={action}
-                        style={{
-                          background: `${GOLD}1A`, border: `1px solid ${GOLD}44`,
-                          borderRadius: 6, color: GOLD_LIGHT,
-                          fontSize: 11, fontWeight: 600, padding: "3px 8px", cursor: "pointer",
-                        }}
-                      >
-                        {t(key)}
-                      </button>
-                    ))}
-                  </div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" }}>
+                  {rangePresets.map(({ labelKey, n }) => (
+                    <button
+                      key={labelKey}
+                      onClick={() => (n === null ? setFullRange() : setLastN(n))}
+                      style={{
+                        ...viewBtnStyle(isRangeMatch(n)),
+                        padding: "2px 8px",
+                        fontSize: 11,
+                      }}
+                    >
+                      {t(labelKey as Parameters<typeof t>[0])}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Player list */}
-                <div style={{ maxHeight: 324, overflowY: "auto", padding: 4 }}>
-                  {sorted.map((s) => {
-                    const isMe = s.userId === currentUserId;
-                    const isSel = selected.has(s.userId);
-                    const isPinned = pinnedId === s.userId;
-                    const color = colorMap.get(s.userId) ?? OTHER_FALLBACK;
-                    const rank = finalRank(s);
-                    return (
-                      <button
-                        key={s.userId}
-                        onClick={() => togglePlayer(s.userId)}
-                        onMouseEnter={() => setPanelHoveredId(s.userId)}
-                        onMouseLeave={() => setPanelHoveredId(null)}
+                {/* Brush */}
+                <div
+                  style={{
+                    position: "relative",
+                    height: BRUSH_H,
+                    cursor: "default",
+                    touchAction: "none",
+                    userSelect: "none",
+                  }}
+                  onPointerDown={handleBrushPointerDown}
+                  onPointerMove={handleBrushPointerMove}
+                  onPointerUp={handleBrushPointerUp}
+                >
+                  {/* Track background */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 8, left: 0, right: 0, bottom: 8,
+                      background: isDark ? `${CREAM}0A` : `${NAVY}0A`,
+                      borderRadius: 4,
+                    }}
+                  />
+                  {/* Step ticks (evenly distributed via flex) */}
+                  <div
+                    style={{
+                      display: "flex",
+                      position: "absolute",
+                      top: 8, left: 0, right: 0, bottom: 8,
+                      pointerEvents: "none",
+                    }}
+                  >
+                    {allLabels.map((_, i) => (
+                      <div
+                        key={i}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          width: "100%",
-                          padding: "5px 8px",
-                          borderRadius: 8,
-                          background: isSel ? `${color}18` : "transparent",
-                          opacity: isSel ? 1 : 0.4,
-                          border: isPinned ? `1.5px solid ${color}` : "1.5px solid transparent",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          transition: "opacity 0.1s",
+                          flex: 1,
+                          borderRight: i < allLabels.length - 1
+                            ? `1px solid ${isDark ? `${CREAM}15` : `${NAVY}15`}`
+                            : "none",
                         }}
-                      >
-                        <span
-                          style={{
-                            width: 9, height: 9, borderRadius: "50%",
-                            background: color, flexShrink: 0,
-                          }}
-                        />
-                        <span
-                          style={{
-                            flex: 1, overflow: "hidden", textOverflow: "ellipsis",
-                            whiteSpace: "nowrap", fontSize: 12,
-                            color: isMe ? GOLD : CREAM, fontWeight: isMe ? 700 : 400,
-                          }}
-                        >
-                          {s.displayName}
-                        </span>
-                        <span style={{ flexShrink: 0, fontSize: 10, color: CREAM, opacity: 0.5 }}>
-                          {rank === Infinity ? "–" : `${rank}º`}
-                        </span>
-                        {isPinned && <Pin size={10} style={{ color: GOLD, flexShrink: 0 }} />}
-                        {isSel && !isPinned && <Check size={11} style={{ color, flexShrink: 0 }} />}
-                      </button>
-                    );
-                  })}
+                      />
+                    ))}
+                  </div>
+                  {/* Selected region */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 8,
+                      left: `${pct(effectiveStart)}%`,
+                      width: `${pct(effectiveEnd) - pct(effectiveStart)}%`,
+                      bottom: 8,
+                      background: GOLD,
+                      opacity: isDark ? 0.3 : 0.25,
+                      borderRadius: 4,
+                      pointerEvents: "none",
+                    }}
+                  />
+                  {/* Left handle */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      left: `calc(${pct(effectiveStart)}% - 3px)`,
+                      width: 6,
+                      bottom: 4,
+                      background: GOLD,
+                      borderRadius: 3,
+                      cursor: "ew-resize",
+                      pointerEvents: "none",
+                    }}
+                  />
+                  {/* Right handle */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      left: `calc(${pct(effectiveEnd)}% - 3px)`,
+                      width: 6,
+                      bottom: 4,
+                      background: GOLD,
+                      borderRadius: 3,
+                      cursor: "ew-resize",
+                      pointerEvents: "none",
+                    }}
+                  />
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* ── Player panel (full-width, below chart) ──────────────────── */}
+          <div
+            style={{
+              background: panel.bg,
+              border: `1px solid ${panel.border}`,
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
+            {/* Preset buttons row */}
+            <div
+              style={{
+                padding: "8px 12px",
+                borderBottom: `1px solid ${isDark ? `${GOLD}22` : `${NAVY}14`}`,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  color: panel.name,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  opacity: 0.7,
+                  flexShrink: 0,
+                }}
+              >
+                {t("trajectoryPlayers")}
+              </span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(
+                  [
+                    { key: "trajectoryTop10", action: () => selectTop(10) },
+                    { key: "trajectoryTop25", action: () => selectTop(25) },
+                    { key: "trajectoryAll", action: selectAll },
+                    { key: "trajectoryNone", action: selectNone },
+                  ] as const
+                ).map(({ key, action }) => (
+                  <button
+                    key={key}
+                    onClick={action}
+                    style={{
+                      background: isDark ? `${GOLD}1A` : `${NAVY}0D`,
+                      border: `1px solid ${isDark ? `${GOLD}44` : `${NAVY}22`}`,
+                      borderRadius: 6,
+                      color: isDark ? GOLD_LIGHT : NAVY,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      padding: "3px 8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Player grid */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+                gap: 2,
+                padding: 6,
+                maxHeight: 200,
+                overflowY: "auto",
+              }}
+            >
+              {sorted.map((s) => {
+                const isMe = s.userId === currentUserId;
+                const isSel = selected.has(s.userId);
+                const isPinned = pinnedId === s.userId;
+                const color = colorMap.get(s.userId) ?? board.fallback;
+                const rank = finalRank(s);
+                return (
+                  <button
+                    key={s.userId}
+                    onClick={() => togglePlayer(s.userId)}
+                    onMouseEnter={() => setPanelHoveredId(s.userId)}
+                    onMouseLeave={() => setPanelHoveredId(null)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: isSel ? `${color}18` : "transparent",
+                      opacity: isSel ? 1 : 0.4,
+                      border: isPinned ? `1.5px solid ${color}` : "1.5px solid transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "opacity 0.1s",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8, height: 8, borderRadius: "50%",
+                        background: color, flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        fontSize: 12,
+                        color: isMe ? panel.me : panel.name,
+                        fontWeight: isMe ? 700 : 400,
+                      }}
+                    >
+                      {s.displayName}
+                    </span>
+                    <span style={{ flexShrink: 0, fontSize: 10, color: panel.name, opacity: 0.5 }}>
+                      {rank === Infinity ? "–" : `${rank}º`}
+                    </span>
+                    {isPinned && <Pin size={10} style={{ color: GOLD, flexShrink: 0 }} />}
+                    {isSel && !isPinned && <Check size={11} style={{ color, flexShrink: 0 }} />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>

@@ -143,7 +143,15 @@
     "trajectoryViewByDay": "일",
     "trajectoryViewByRound": "라운드",
     "trajectoryDownloadPng": "PNG",
-    "trajectoryDownloadPdf": "PDF"
+    "trajectoryDownloadPdf": "PDF",
+    "trajectoryAxisPlaces": "순위",
+    "trajectoryAxisPoints": "점수",
+    "trajectoryLast3Rounds": "최근 3",
+    "trajectoryLast5Rounds": "최근 5",
+    "trajectoryLast3Days": "3일",
+    "trajectoryLastWeek": "7일",
+    "trajectoryLast10Matches": "최근 10",
+    "trajectoryLast20Matches": "최근 20"
   },
   "admin": {
     "title": "관리자 패널",
