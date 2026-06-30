@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildDefaultInputs,
   projectStandings,
+  isMatchInputComplete,
   type WhatIfMatch,
   type WhatIfPredEntry,
   type MatchInput,
@@ -341,5 +342,72 @@ describe("anyChange flag", () => {
     );
 
     expect(anyChange).toBe(true);
+  });
+});
+
+// ── isMatchInputComplete ──────────────────────────────────────────────────────
+
+describe("isMatchInputComplete", () => {
+  it("returns true when both boxes are filled (string values)", () => {
+    expect(isMatchInputComplete({ home: "2", away: "1", advancingTeamId: "" })).toBe(true);
+  });
+
+  it("returns true when both boxes are filled (numeric values from finished matches)", () => {
+    expect(isMatchInputComplete({ home: 2, away: 1, advancingTeamId: "" })).toBe(true);
+  });
+
+  it("returns false when home is blank, away is filled", () => {
+    expect(isMatchInputComplete({ home: "", away: "1", advancingTeamId: "" })).toBe(false);
+  });
+
+  it("returns false when away is blank, home is filled", () => {
+    expect(isMatchInputComplete({ home: "2", away: "", advancingTeamId: "" })).toBe(false);
+  });
+
+  it("returns false when both boxes are blank", () => {
+    expect(isMatchInputComplete({ home: "", away: "", advancingTeamId: "" })).toBe(false);
+  });
+
+  it("returns false for undefined input", () => {
+    expect(isMatchInputComplete(undefined)).toBe(false);
+  });
+});
+
+// ── projectStandings — half-filled inputs ─────────────────────────────────────
+
+describe("projectStandings — half-filled inputs", () => {
+  it("treats a half-filled match (home filled, away blank) as no input", () => {
+    const baseline = [makeRow("alice", 1, 100)];
+    const match = groupMatch("m1");
+    const predByKey: Record<string, WhatIfPredEntry> = {
+      "alice:m1": { home: 2, away: 1, penaltyWinnerId: null },
+    };
+
+    const { anyChange, projected } = projectStandings(
+      baseline,
+      [match],
+      { m1: { home: "2", away: "", advancingTeamId: "" } },  // half-filled
+      predByKey,
+      {}
+    );
+
+    // Half-filled: the match must be skipped entirely — no points, no rank change.
+    expect(anyChange).toBe(false);
+    expect(projected[0]!.totalPoints).toBe(100);
+  });
+
+  it("treats a half-filled match (away filled, home blank) as no input", () => {
+    const baseline = [makeRow("alice", 1, 100)];
+    const match = groupMatch("m1");
+
+    const { anyChange } = projectStandings(
+      baseline,
+      [match],
+      { m1: { home: "", away: "1", advancingTeamId: "" } },  // half-filled
+      {},
+      {}
+    );
+
+    expect(anyChange).toBe(false);
   });
 });
