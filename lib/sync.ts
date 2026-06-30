@@ -44,7 +44,59 @@ export interface SyncResult {
   errors: string[];
 }
 
-// ── Pure helper — testable without network/DB ─────────────────────────────────
+// ── Pure helpers — testable without network/DB ────────────────────────────────
+
+/**
+ * Resolve the score and advancer for a FINISHED match.
+ *
+ * football-data.org v4 semantics (confirmed against live data):
+ *   fullTime = regularTime + extraTime + penalties  (cumulative through the end)
+ *   extraTime = only the goals scored in the 30-minute ET period
+ *   penalties = only the shootout tally
+ *
+ * We want to store the score at the end of regulation/ET (excluding the
+ * shootout), so we subtract the penalties back out of fullTime when present.
+ *
+ * Returns null when fullTime is not yet available (the caller should skip).
+ */
+export function resolveFinishedScore(
+  m: FdMatchResult,
+  teamByCode: Map<string, string>
+): {
+  homeScore: number;
+  awayScore: number;
+  penaltyWinnerTeamId: string | null;
+  advancingTeamId: string | null;
+} | null {
+  const ft = m.score.fullTime;
+  if (ft.home == null || ft.away == null) return null;
+
+  const pen = m.score.penalties ?? null;
+
+  // Subtract the shootout tally from fullTime to get the regulation/ET score.
+  // For matches that didn't go to penalties, pen is null and fullTime is used as-is.
+  const homeScore = pen?.home != null ? ft.home - pen.home : ft.home;
+  const awayScore = pen?.away != null ? ft.away - pen.away : ft.away;
+
+  let penaltyWinnerTeamId: string | null = null;
+  let advancingTeamId: string | null = null;
+
+  if (pen) {
+    const pHome = pen.home ?? 0;
+    const pAway = pen.away ?? 0;
+    const winnerCode = pHome > pAway ? m.homeTeam.tla : m.awayTeam.tla;
+    penaltyWinnerTeamId = teamByCode.get(winnerCode?.toUpperCase() ?? "") ?? null;
+    advancingTeamId = penaltyWinnerTeamId;
+  } else {
+    if (homeScore > awayScore) {
+      advancingTeamId = teamByCode.get(m.homeTeam.tla?.toUpperCase() ?? "") ?? null;
+    } else if (awayScore > homeScore) {
+      advancingTeamId = teamByCode.get(m.awayTeam.tla?.toUpperCase() ?? "") ?? null;
+    }
+  }
+
+  return { homeScore, awayScore, penaltyWinnerTeamId, advancingTeamId };
+}
 
 /**
  * Given our current DB row (home_team_id/away_team_id) and an FD match with
@@ -131,36 +183,12 @@ export async function syncResults(admin: SupabaseClient<any>, apiKey: string): P
   for (const m of fdMatches) {
     const extId = String(m.id);
 
-    // ── Branch 1: finished — update scores (unchanged semantics) ──────────────
+    // ── Branch 1: finished — update scores ────────────────────────────────────
     if (m.status === "FINISHED") {
-      const ft = m.score.fullTime;
-      const et = m.score.extraTime ?? null;
+      const resolved = resolveFinishedScore(m, teamByCode);
+      if (!resolved) { skipped++; continue; }
 
-      if (ft.home == null || ft.away == null) { skipped++; continue; }
-
-      // Score at end of regulation or ET (not including penalty shootout goals)
-      const homeScore =
-        et?.home != null ? ft.home + et.home : ft.home;
-      const awayScore =
-        et?.away != null ? ft.away + et.away : ft.away;
-
-      // Penalty winner (knockout matches only)
-      let penaltyWinnerTeamId: string | null = null;
-      let advancingTeamId: string | null = null;
-
-      if (m.score.penalties) {
-        const pHome = m.score.penalties.home ?? 0;
-        const pAway = m.score.penalties.away ?? 0;
-        const winnerCode = pHome > pAway ? m.homeTeam.tla : m.awayTeam.tla;
-        penaltyWinnerTeamId = teamByCode.get(winnerCode?.toUpperCase() ?? "") ?? null;
-        advancingTeamId = penaltyWinnerTeamId;
-      } else {
-        if (homeScore > awayScore) {
-          advancingTeamId = teamByCode.get(m.homeTeam.tla?.toUpperCase() ?? "") ?? null;
-        } else if (awayScore > homeScore) {
-          advancingTeamId = teamByCode.get(m.awayTeam.tla?.toUpperCase() ?? "") ?? null;
-        }
-      }
+      const { homeScore, awayScore, penaltyWinnerTeamId, advancingTeamId } = resolved;
 
       const { data: updatedRows, error } = await admin
         .from("matches")
