@@ -50,6 +50,23 @@ export interface MatchInput {
   advancingTeamId: string; // knockout draw: which team advances
 }
 
+// ── Input completeness ─────────────────────────────────────────────────────────
+
+/**
+ * A match input is considered complete (usable in the projection) only when
+ * BOTH the home and away score boxes are filled.
+ *
+ * Used by both the projection logic and the "next unsimulated match" finder so
+ * the two sites can never disagree about what constitutes a valid input.
+ */
+export function isMatchInputComplete(inp: MatchInput | undefined): boolean {
+  return (
+    inp != null &&
+    inp.home !== "" && inp.home !== undefined &&
+    inp.away !== "" && inp.away !== undefined
+  );
+}
+
 // ── Default inputs ─────────────────────────────────────────────────────────────
 
 /**
@@ -117,21 +134,21 @@ export function projectStandings(
 
   for (const m of matches) {
     const inp = inputs[m.id];
-    const homeStr = inp?.home;
-    const awayStr = inp?.away;
-    const homeVal =
-      homeStr !== "" && homeStr !== undefined ? Number(homeStr) : null;
-    const awayVal =
-      awayStr !== "" && awayStr !== undefined ? Number(awayStr) : null;
 
-    // Skip if either score box is blank
-    if (homeVal === null || awayVal === null) continue;
+    // Skip if either score box is blank (uses shared predicate so this check
+    // stays in sync with the "next unsimulated match" finder in the table).
+    if (!isMatchInputComplete(inp)) continue;
+    // inp is guaranteed non-undefined by isMatchInputComplete (TS can't infer this).
+    const safeInp = inp!;
+
+    const homeVal = Number(safeInp.home);
+    const awayVal = Number(safeInp.away);
 
     const max = m.stage === "group" ? 10 : 25;
 
     // For knockout draws, use the user-picked advancing team
     const enteredDraw = m.stage === "knockout" && homeVal === awayVal;
-    const chosenAdvancingId = enteredDraw ? inp?.advancingTeamId || null : null;
+    const chosenAdvancingId = enteredDraw ? safeInp.advancingTeamId || null : null;
 
     for (const [userId, entry] of agg) {
       // What the match currently contributes to the real standings

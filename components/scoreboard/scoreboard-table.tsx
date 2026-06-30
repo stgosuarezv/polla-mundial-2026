@@ -9,6 +9,7 @@ import { WhatIfInputs } from "@/components/scoreboard/what-if-inputs";
 import {
   buildDefaultInputs,
   projectStandings,
+  isMatchInputComplete,
   type WhatIfMatch,
   type WhatIfPredEntry,
   type MatchInput,
@@ -200,13 +201,11 @@ export function ScoreboardTable({
   // Show real rank-change arrows in normal mode when we have previous-rank data
   const hasPrevRanks = showLastMatch && Object.keys(prevRankByUser).length > 0;
 
-  // When simulating, show the first what-if match whose home+away inputs are
-  // still blank — that's the "next match to simulate" from the player's POV.
+  // When simulating, show the first what-if match that is not yet complete —
+  // i.e. either score box is still blank. Uses the shared isMatchInputComplete
+  // predicate so this check stays in sync with the projection logic.
   const nextUnsimulatedMatch = simulating
-    ? (whatIfMatches.find((m) => {
-        const inp = inputs[m.id];
-        return inp?.home === "" && inp?.away === "";
-      }) ?? null)
+    ? (whatIfMatches.find((m) => !isMatchInputComplete(inputs[m.id])) ?? null)
     : null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
