@@ -54,6 +54,10 @@ export const FUN_QUOTES: readonly FunQuote[] = [
     quote: "Olise q wea",
     author: "JP",
   },
+  {
+    quote: "Terminelo profe",
+    author: "todos, del minuto 60 en adelante",
+  },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

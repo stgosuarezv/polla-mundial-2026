@@ -118,7 +118,7 @@
     "oracleTotalRow": "Total",
     "oracleRoundCurrent": "En curso",
     "oracleAllMatches": "{count, plural, one {# partido} other {# partidos}}",
-    "oracleLiveTag": "En vivo",
+    "oracleLiveTag": "🔴 Terminelo profe",
     "oracleUpcomingTag": "Aún por jugarse",
     "oraclePlayedTag": "Jugado",
     "oracleResult": "Resultado",

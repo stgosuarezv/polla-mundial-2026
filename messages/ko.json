@@ -118,7 +118,7 @@
     "oracleTotalRow": "합계",
     "oracleRoundCurrent": "현재",
     "oracleAllMatches": "{count, plural, other {#경기 전체}}",
-    "oracleLiveTag": "진행 중",
+    "oracleLiveTag": "🔴 심판님, 이제 끝내시죠",
     "oracleUpcomingTag": "경기 전",
     "oraclePlayedTag": "경기 종료",
     "oracleResult": "결과",

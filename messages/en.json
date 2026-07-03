@@ -118,7 +118,7 @@
     "oracleTotalRow": "Total",
     "oracleRoundCurrent": "Current",
     "oracleAllMatches": "{count, plural, one {# match} other {# matches}}",
-    "oracleLiveTag": "Live",
+    "oracleLiveTag": "🔴 End it, ref",
     "oracleUpcomingTag": "Not played yet",
     "oraclePlayedTag": "Played",
     "oracleResult": "Result",
