@@ -22,6 +22,7 @@ import {
   computeCalzometro,
   type CalzometroMatch,
 } from "@/lib/scoring/calzometro";
+import { FunQuotesSection } from "@/components/scoreboard/fun-quotes-section";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
 import {
@@ -710,6 +711,10 @@ export default async function ScoreboardPage({ params }: Props) {
           <CalzometroSection result={calzometro} />
         </div>
       )}
+
+      <div className="print:hidden">
+        <FunQuotesSection leaderName={rows[0]?.displayName ?? null} />
+      </div>
 
       {rows.length > 0 && (
         <TrajectorySection

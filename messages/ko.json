@@ -356,6 +356,11 @@
     "noPoints": "점수 미반영",
     "tooltip": "이건 재미로 보는 거예요. 점수나 상금에는 영향을 주지 않습니다.",
     "sectionKicker": "재미로",
-    "calzonTitle": "완벽한 예측을 축하합니다!"
+    "calzonTitle": "완벽한 예측을 축하합니다!",
+    "quotes": {
+      "title": "폴라 명언집",
+      "subtitle": "칠레 스페인어 원문 그대로 보존했습니다. 번역하면 맛이 안 살아요.",
+      "attribution": "— {author}"
+    }
   }
 }
