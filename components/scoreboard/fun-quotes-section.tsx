@@ -3,18 +3,26 @@ import { FunSection } from "@/components/ui/fun-section";
 import { buildQuotePool } from "@/lib/fun-quotes";
 
 /**
- * One random group-chat quote per page load ("frases célebres"). Server
- * component: the page is dynamic (auth), so Math.random here is a fresh pick
- * on every request with zero client JS and no hydration mismatch.
+ * One rotating group-chat quote per page load ("frases célebres"). Server
+ * component: the page is dynamic (auth) and passes its request timestamp as
+ * `seed`, so each load lands on a different quote — pure render, no client JS.
  */
+function hashSeed(seed: string): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
 export async function FunQuotesSection({
   leaderName,
+  seed,
 }: {
   leaderName: string | null;
+  seed: string;
 }) {
   const t = await getTranslations("fun");
   const pool = buildQuotePool(leaderName);
-  const q = pool[Math.floor(Math.random() * pool.length)]!;
+  const q = pool[hashSeed(seed) % pool.length]!;
 
   return (
     <FunSection title={t("quotes.title")} subtitle={t("quotes.subtitle")}>

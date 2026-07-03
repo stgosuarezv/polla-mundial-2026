@@ -713,7 +713,7 @@ export default async function ScoreboardPage({ params }: Props) {
       )}
 
       <div className="print:hidden">
-        <FunQuotesSection leaderName={rows[0]?.displayName ?? null} />
+        <FunQuotesSection leaderName={rows[0]?.displayName ?? null} seed={nowIso} />
       </div>
 
       {rows.length > 0 && (
