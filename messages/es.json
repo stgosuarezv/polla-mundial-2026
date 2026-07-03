@@ -6,7 +6,7 @@
   },
   "nav": {
     "predictions": "Predicciones",
-    "scoreboard": "Tabla",
+    "scoreboard": "Tabliña",
     "podio": "Podio",
     "rules": "Reglas",
     "profile": "Perfil",
@@ -77,7 +77,7 @@
     "extraTimeNote": "Recuerda que, a partir de los dieciseisavos de final, si un partido llega a tiempo extra, las predicciones se basarán en los 120 minutos completos y no solo en los primeros 90."
   },
   "scoreboard": {
-    "title": "Tabla de posiciones",
+    "title": "La Tabliña",
     "rank": "Pos.",
     "player": "Jugador",
     "points": "Pts",

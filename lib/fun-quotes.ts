@@ -37,6 +37,23 @@ export const FUN_QUOTES: readonly FunQuote[] = [
     quote: "Es ilegal esa delantera",
     author: "Nacho",
   },
+  {
+    quote: "MEX-ECU va a dejar el pico en la tabliña",
+    author: "Santi F.",
+  },
+  {
+    quote:
+      "Doué ctm lo más bien que el otro día me cagó el calzón, y hoy día entra durmiendo",
+    author: "JP",
+  },
+  {
+    quote: "¿Y el profe no tendrá razones para anularlo?",
+    author: "Alberto",
+  },
+  {
+    quote: "Olise q wea",
+    author: "JP",
+  },
 ];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,7 +68,7 @@ export function isEmailDisplayName(name: string): boolean {
 // leader; disappears the moment the leader changes or renames.
 export const GMAIL_QUOTE: FunQuote = {
   quote: "El gmail sigue primero. El gmail.",
-  author: "la tabla, minuto a minuto",
+  author: "la tabliña, minuto a minuto",
 };
 
 export function buildQuotePool(leaderName: string | null): FunQuote[] {
