@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   FUN_QUOTES,
-  GMAIL_QUOTE,
+  GMAIL_QUOTES,
   buildQuotePool,
   isEmailDisplayName,
 } from "../lib/fun-quotes";
@@ -21,10 +21,10 @@ describe("isEmailDisplayName", () => {
 });
 
 describe("buildQuotePool", () => {
-  it("appends the gmail quote only when the leader's name is an email", () => {
+  it("appends the gmail quotes only when the leader's name is an email", () => {
     const withEgg = buildQuotePool("fulanito@gmail.com");
-    expect(withEgg).toContainEqual(GMAIL_QUOTE);
-    expect(withEgg).toHaveLength(FUN_QUOTES.length + 1);
+    for (const gq of GMAIL_QUOTES) expect(withEgg).toContainEqual(gq);
+    expect(withEgg).toHaveLength(FUN_QUOTES.length + GMAIL_QUOTES.length);
   });
 
   it("returns the base pool for a normal leader name or null", () => {

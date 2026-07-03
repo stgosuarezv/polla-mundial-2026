@@ -66,13 +66,19 @@ export function isEmailDisplayName(name: string): boolean {
 // raw email address. Never renders the actual address — the joke is the
 // pattern, not the person. Transfers automatically to any future email-named
 // leader; disappears the moment the leader changes or renames.
-export const GMAIL_QUOTE: FunQuote = {
-  quote: "El gmail sigue primero. El gmail.",
-  author: "la tabliña, minuto a minuto",
-};
+export const GMAIL_QUOTES: readonly FunQuote[] = [
+  {
+    quote: "El gmail sigue primero. El gmail.",
+    author: "la tabliña, minuto a minuto",
+  },
+  {
+    quote: "Primero va un correo electrónico. Después, seres humanos.",
+    author: "la tabliña, minuto a minuto",
+  },
+];
 
 export function buildQuotePool(leaderName: string | null): FunQuote[] {
   return leaderName && isEmailDisplayName(leaderName)
-    ? [...FUN_QUOTES, GMAIL_QUOTE]
+    ? [...FUN_QUOTES, ...GMAIL_QUOTES]
     : [...FUN_QUOTES];
 }
