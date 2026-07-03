@@ -17,6 +17,11 @@ import { ScoreboardTable } from "@/components/scoreboard/scoreboard-table";
 import type { NextMatchCol } from "@/components/scoreboard/scoreboard-table";
 import { TrajectorySection } from "@/components/scoreboard/trajectory-section";
 import { PdfButton } from "@/components/rules/pdf-button";
+import { CalzometroSection } from "@/components/scoreboard/calzometro-section";
+import {
+  computeCalzometro,
+  type CalzometroMatch,
+} from "@/lib/scoring/calzometro";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
 import {
@@ -512,6 +517,41 @@ export default async function ScoreboardPage({ params }: Props) {
     }
   }
 
+  // ── El Calzómetro (parallel-picks banter, just for fun) ─────────────────────
+  // Reuses lockedMatchesForBrowser + whatIfPreds — zero new queries. Latest
+  // locked round only, top pair only; reveals nothing that the match-stats
+  // browser doesn't already show post-lock.
+  const calzometroMatches: CalzometroMatch[] = lockedMatchesForBrowser.map(
+    (m) => {
+      const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
+      const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
+      const round = Array.isArray(m.rounds) ? m.rounds[0] : m.rounds;
+      return {
+        id: m.id,
+        label: `${teamCode(home as TeamLite | null)}–${teamCode(away as TeamLite | null)}`,
+        kickoffAt: m.kickoff_at,
+        stage: round?.stage === "group" ? ("group" as const) : ("knockout" as const),
+        homeTeamId: (home as TeamLite | null)?.id ?? null,
+        awayTeamId: (away as TeamLite | null)?.id ?? null,
+        homeCode: teamCode(home as TeamLite | null),
+        awayCode: teamCode(away as TeamLite | null),
+        roundNameKey: round?.name_key ?? "",
+        roundOrderIndex: round?.order_index ?? 0,
+      };
+    }
+  );
+  const calzometro = computeCalzometro(
+    calzometroMatches,
+    (whatIfPreds ?? []).map((wp) => ({
+      userId: wp.user_id,
+      matchId: wp.match_id,
+      home: wp.home_score_pred,
+      away: wp.away_score_pred,
+      penaltyWinnerId: wp.penalty_winner_team_id,
+    })),
+    nameByUserId
+  );
+
   // Map locked matches to the WhatIfMatch shape (types from lib/scoring/what-if)
   const whatIfMatches: WhatIfMatch[] = lockedMatchesForBrowser.map((m) => {
     const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
@@ -662,6 +702,12 @@ export default async function ScoreboardPage({ params }: Props) {
       {oracleRounds.length > 0 && (
         <div className="print:hidden">
           <OraculoSection items={oracleItems} rounds={oracleRounds} />
+        </div>
+      )}
+
+      {calzometro && (
+        <div className="print:hidden">
+          <CalzometroSection result={calzometro} />
         </div>
       )}
 

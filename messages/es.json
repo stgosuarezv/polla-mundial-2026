@@ -151,7 +151,13 @@
     "trajectoryLast3Days": "3 días",
     "trajectoryLastWeek": "7 días",
     "trajectoryLast10Matches": "Últ. 10",
-    "trajectoryLast20Matches": "Últ. 20"
+    "trajectoryLast20Matches": "Últ. 20",
+    "calzometroTitle": "El Calzómetro 🩲",
+    "calzometroSubtitle": "¿Quiénes se mandaron el calzón paralelo esta ronda?",
+    "calzometroEqualCount": "{equal}/{both} picks iguales",
+    "calzometroTied": "{count, plural, one {+# pareja más empatada} other {+# parejas más empatadas}}",
+    "calzonDialogSubtitle": "{equal}/{both} picks iguales · {round}",
+    "calzometroFootnote": "Solo cuentan los partidos donde ambos jugadores pronosticaron."
   },
   "admin": {
     "title": "Panel de administración",
