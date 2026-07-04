@@ -180,13 +180,15 @@ export default async function PredictionsPage({ params }: Props) {
         {/* Extra-time scoring note */}
         <ExtraTimeBanner message={t("extraTimeNote")} />
 
-        {/* View toggle + expand / collapse all (open-state persistence) */}
+        {/* View toggle (desktop only) + expand / collapse all */}
         {roundsList.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <ViewToggle
               labels={{ viewCards: t("viewCards"), viewList: t("viewList") }}
             />
-            <RoundControls labels={tControls} />
+            <div className="ml-auto">
+              <RoundControls labels={tControls} />
+            </div>
           </div>
         )}
 
