@@ -243,7 +243,9 @@ export default async function PredictionsPage({ params }: Props) {
                       status={match.status}
                       actualHome={match.home_score}
                       actualAway={match.away_score}
-                      actualPenaltyWinnerId={match.penalty_winner_team_id}
+                      actualAdvancerId={
+                        match.advancing_team_id ?? match.penalty_winner_team_id
+                      }
                       isKnockout={round.stage === "knockout"}
                       isLocked={isLocked}
                       prediction={predByMatchId.get(match.id) ?? null}

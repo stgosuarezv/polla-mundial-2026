@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DisplayNameEditor, type DisplayNameMode } from "@/components/profile/display-name-editor";
@@ -96,6 +97,10 @@ export default async function ProfilePage({ params }: Props) {
   const unlockedRounds = rounds.filter((r) => new Date(r.lock_time) > now);
   const currentRoundId =
     unlockedRounds.length > 0 ? unlockedRounds[0]!.id : null;
+  // rounds are ordered by order_index, so the last locked one is the most recent
+  const lockedRounds = rounds.filter((r) => new Date(r.lock_time) <= now);
+  const mostRecentLockedId =
+    lockedRounds.length > 0 ? lockedRounds[lockedRounds.length - 1]!.id : null;
 
   // Predictions for locked rounds (RLS allows seeing others' predictions after lock)
   const lockedMatchIds = allMatches
@@ -238,10 +243,12 @@ export default async function ProfilePage({ params }: Props) {
         )}
       </section>
 
-      {/* All rounds */}
+      {/* All rounds (collapsible; the most recent locked round and the
+          current one start open, older rounds start collapsed) */}
       {rounds.map((round) => {
         const isLocked = new Date(round.lock_time) <= now;
         const isCurrent = round.id === currentRoundId;
+        const defaultOpen = isCurrent || round.id === mostRecentLockedId;
         const roundKey = round.name_key.replace(
           "rounds.",
           ""
@@ -257,8 +264,8 @@ export default async function ProfilePage({ params }: Props) {
         }, 0);
 
         return (
-          <section key={round.id} className="space-y-2">
-            <div className="flex items-center gap-2">
+          <details key={round.id} open={defaultOpen} className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
               <h2 className="font-semibold">{tRounds(roundKey)}</h2>
               <span
                 className="text-xs px-2 py-0.5 rounded-full border"
@@ -276,13 +283,17 @@ export default async function ProfilePage({ params }: Props) {
                   ? t("currentRoundBadge")
                   : t("upcomingBadge")}
               </span>
-              {isLocked && (
-                <span className="ml-auto text-sm font-bold text-primary">
-                  {roundPoints} {tPred("pts")}
-                </span>
-              )}
-            </div>
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                {isLocked && (
+                  <span className="text-sm font-bold text-primary">
+                    {roundPoints} {tPred("pts")}
+                  </span>
+                )}
+                <ChevronDown className="text-muted-foreground size-5 shrink-0 -rotate-90 transition-transform group-open:rotate-0" />
+              </span>
+            </summary>
 
+            <div className="mt-2">
             {isLocked ? (
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-xs sm:text-sm">
@@ -385,7 +396,8 @@ export default async function ProfilePage({ params }: Props) {
                 {isCurrent ? t("currentRoundNote") : t("upcomingNote")}
               </p>
             )}
-          </section>
+            </div>
+          </details>
         );
       })}
     </div>
