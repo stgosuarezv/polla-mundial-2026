@@ -22,6 +22,7 @@ import {
   computeCalzometro,
   type CalzometroMatch,
 } from "@/lib/scoring/calzometro";
+import { FunQuotesSection } from "@/components/scoreboard/fun-quotes-section";
 import { DownloadImageButton } from "@/components/scoreboard/download-image-button";
 import type { WhatIfMatch, WhatIfPredEntry } from "@/lib/scoring/what-if";
 import {
@@ -645,7 +646,7 @@ export default async function ScoreboardPage({ params }: Props) {
         <div className="flex items-center gap-2">
           <DownloadImageButton
             targetId="scoreboard-table"
-            fileName="tabla-polla-mundial.png"
+            fileName="la-tablinha.png"
             label={t("downloadImage")}
           />
           <PdfButton label={tRules("downloadPdf")} />
@@ -710,6 +711,10 @@ export default async function ScoreboardPage({ params }: Props) {
           <CalzometroSection result={calzometro} />
         </div>
       )}
+
+      <div className="print:hidden">
+        <FunQuotesSection leaderName={rows[0]?.displayName ?? null} seed={nowIso} />
+      </div>
 
       {rows.length > 0 && (
         <TrajectorySection

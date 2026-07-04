@@ -118,7 +118,7 @@
     "oracleTotalRow": "Total",
     "oracleRoundCurrent": "Current",
     "oracleAllMatches": "{count, plural, one {# match} other {# matches}}",
-    "oracleLiveTag": "Live",
+    "oracleLiveTag": "🔴 End it, ref",
     "oracleUpcomingTag": "Not played yet",
     "oraclePlayedTag": "Played",
     "oracleResult": "Result",
@@ -356,6 +356,11 @@
     "noPoints": "Doesn't count",
     "tooltip": "This is just for fun. It doesn't affect your score or the cash prize.",
     "sectionKicker": "Just for fun",
-    "calzonTitle": "Congrats — you nailed it!"
+    "calzonTitle": "Congrats — you nailed it!",
+    "quotes": {
+      "title": "Hall of quotes",
+      "subtitle": "Preserved in the original Chilean Spanish. Translating them would only cause damage.",
+      "attribution": "— {author}"
+    }
   }
 }
