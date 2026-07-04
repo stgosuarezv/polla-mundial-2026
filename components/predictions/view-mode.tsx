@@ -8,6 +8,11 @@ type ViewMode = "grid" | "list";
 
 const STORAGE_KEY = "pm:predictions-view";
 
+// List view is desktop-only: below Tailwind's `sm` breakpoint the cards are
+// forced into grid mode and the toggle is hidden (see ViewToggle). Keep this
+// query in sync with the `sm:` classes used there.
+const DESKTOP_QUERY = "(min-width: 640px)";
+
 /**
  * Purely presentational view-mode state (grid of cards vs compact list),
  * exposed via useSyncExternalStore: SSR/hydration always renders "grid",
@@ -24,12 +29,18 @@ const listeners = new Set<() => void>();
 
 function subscribe(cb: () => void) {
   listeners.add(cb);
+  // Re-evaluate on viewport changes so crossing the sm breakpoint
+  // (rotation, window resize) flips between list and forced grid.
+  const mq = window.matchMedia(DESKTOP_QUERY);
+  mq.addEventListener("change", cb);
   return () => {
     listeners.delete(cb);
+    mq.removeEventListener("change", cb);
   };
 }
 
 function getSnapshot(): ViewMode {
+  if (!window.matchMedia(DESKTOP_QUERY).matches) return "grid";
   if (memoryMode !== null) return memoryMode;
   try {
     return localStorage.getItem(STORAGE_KEY) === "list" ? "list" : "grid";
@@ -65,7 +76,7 @@ export function ViewToggle({
   const mode = useViewMode();
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="hidden items-center gap-1 sm:flex">
       <Button
         size="sm"
         variant={mode === "grid" ? "default" : "outline"}
