@@ -646,7 +646,7 @@ export default async function ScoreboardPage({ params }: Props) {
         <div className="flex items-center gap-2">
           <DownloadImageButton
             targetId="scoreboard-table"
-            fileName="la-tabliña.png"
+            fileName="la-tablinha.png"
             label={t("downloadImage")}
           />
           <PdfButton label={tRules("downloadPdf")} />
