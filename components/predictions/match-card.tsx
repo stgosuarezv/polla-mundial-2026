@@ -366,11 +366,13 @@ export function MatchCard({
           </span>
         )}
         {/* Home team */}
+        {/* In list view, row-reverse puts the flag right of the name, hugging
+            the first score box (DOM order stays identical to grid view). */}
         <div
           className={cn(
             "flex flex-1",
             isList
-              ? "min-w-0 flex-row items-center justify-end gap-1.5"
+              ? "min-w-0 flex-row-reverse items-center justify-start gap-1.5"
               : "flex-col items-center gap-1"
           )}
         >
@@ -450,9 +452,11 @@ export function MatchCard({
           </span>
         </div>
 
-        {/* List view: everything else inline, using the full row width */}
+        {/* List view: everything else inline, in a fixed-width trailing area
+            so the score boxes/flags stay in a straight column across rows
+            (long content wraps inside instead of shifting the row). */}
         {isList && (
-          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          <div className="ml-auto flex w-44 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
             {actualResultEl}
             {lockedPenPickEl}
             {penButtons && (
