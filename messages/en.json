@@ -151,7 +151,13 @@
     "trajectoryLast3Days": "3 days",
     "trajectoryLastWeek": "7 days",
     "trajectoryLast10Matches": "Last 10",
-    "trajectoryLast20Matches": "Last 20"
+    "trajectoryLast20Matches": "Last 20",
+    "calzometroTitle": "The Calzómetro 🩲",
+    "calzometroSubtitle": "Great minds picked alike this round",
+    "calzometroEqualCount": "{equal}/{both} identical picks",
+    "calzometroMore": "{count, plural, one {+# more matching pair} other {+# more matching pairs}}",
+    "calzonDialogSubtitle": "{equal}/{both} identical picks · {round}",
+    "calzometroFootnote": "Only matches where both players submitted a pick are counted."
   },
   "admin": {
     "title": "Admin Panel",
