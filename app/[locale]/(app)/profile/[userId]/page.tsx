@@ -1,9 +1,11 @@
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DisplayNameEditor, type DisplayNameMode } from "@/components/profile/display-name-editor";
+import { actualAdvancerId, drawAdvancerCode } from "@/lib/scoring/advancer";
 
 interface Props {
   params: Promise<{ locale: string; userId: string }>;
@@ -64,6 +66,7 @@ export default async function ProfilePage({ params }: Props) {
       .from("matches")
       .select(
         `id, round_id, kickoff_at, status, home_score, away_score,
+         penalty_winner_team_id, advancing_team_id,
          home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
          away_team:away_team_id ( id, code, name_en, name_es, name_ko )`
       )
@@ -94,6 +97,10 @@ export default async function ProfilePage({ params }: Props) {
   const unlockedRounds = rounds.filter((r) => new Date(r.lock_time) > now);
   const currentRoundId =
     unlockedRounds.length > 0 ? unlockedRounds[0]!.id : null;
+  // rounds are ordered by order_index, so the last locked one is the most recent
+  const lockedRounds = rounds.filter((r) => new Date(r.lock_time) <= now);
+  const mostRecentLockedId =
+    lockedRounds.length > 0 ? lockedRounds[lockedRounds.length - 1]!.id : null;
 
   // Predictions for locked rounds (RLS allows seeing others' predictions after lock)
   const lockedMatchIds = allMatches
@@ -119,7 +126,9 @@ export default async function ProfilePage({ params }: Props) {
     lockedMatchIds.length
       ? supabase
           .from("predictions")
-          .select("match_id, home_score_pred, away_score_pred, points_awarded")
+          .select(
+            "match_id, home_score_pred, away_score_pred, penalty_winner_team_id, points_awarded"
+          )
           .eq("user_id", userId)
           .in("match_id", lockedMatchIds)
       : Promise.resolve({
@@ -127,6 +136,7 @@ export default async function ProfilePage({ params }: Props) {
             match_id: string;
             home_score_pred: number;
             away_score_pred: number;
+            penalty_winner_team_id: string | null;
             points_awarded: number | null;
           }[],
         }),
@@ -233,10 +243,12 @@ export default async function ProfilePage({ params }: Props) {
         )}
       </section>
 
-      {/* All rounds */}
+      {/* All rounds (collapsible; the most recent locked round and the
+          current one start open, older rounds start collapsed) */}
       {rounds.map((round) => {
         const isLocked = new Date(round.lock_time) <= now;
         const isCurrent = round.id === currentRoundId;
+        const defaultOpen = isCurrent || round.id === mostRecentLockedId;
         const roundKey = round.name_key.replace(
           "rounds.",
           ""
@@ -252,8 +264,8 @@ export default async function ProfilePage({ params }: Props) {
         }, 0);
 
         return (
-          <section key={round.id} className="space-y-2">
-            <div className="flex items-center gap-2">
+          <details key={round.id} open={defaultOpen} className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
               <h2 className="font-semibold">{tRounds(roundKey)}</h2>
               <span
                 className="text-xs px-2 py-0.5 rounded-full border"
@@ -271,13 +283,17 @@ export default async function ProfilePage({ params }: Props) {
                   ? t("currentRoundBadge")
                   : t("upcomingBadge")}
               </span>
-              {isLocked && (
-                <span className="ml-auto text-sm font-bold text-primary">
-                  {roundPoints} {tPred("pts")}
-                </span>
-              )}
-            </div>
+              <span className="ml-auto flex shrink-0 items-center gap-2">
+                {isLocked && (
+                  <span className="text-sm font-bold text-primary">
+                    {roundPoints} {tPred("pts")}
+                  </span>
+                )}
+                <ChevronDown className="text-muted-foreground size-5 shrink-0 -rotate-90 transition-transform group-open:rotate-0" />
+              </span>
+            </summary>
 
+            <div className="mt-2">
             {isLocked ? (
               <div className="overflow-x-auto rounded-lg border">
                 <table className="w-full text-xs sm:text-sm">
@@ -303,6 +319,25 @@ export default async function ProfilePage({ params }: Props) {
                         ? match.away_team[0]
                         : match.away_team;
                       const pred = predMap.get(match.id);
+                      const isKnockout = round.stage === "knockout";
+                      const actualAdv = drawAdvancerCode({
+                        isKnockout,
+                        homeScore: match.home_score,
+                        awayScore: match.away_score,
+                        advancerId: actualAdvancerId(match),
+                        home: ht ?? null,
+                        away: at ?? null,
+                      });
+                      const predAdv = pred
+                        ? drawAdvancerCode({
+                            isKnockout,
+                            homeScore: pred.home_score_pred,
+                            awayScore: pred.away_score_pred,
+                            advancerId: pred.penalty_winner_team_id,
+                            home: ht ?? null,
+                            away: at ?? null,
+                          })
+                        : null;
 
                       return (
                         <tr key={match.id} className="hover:bg-muted/20">
@@ -314,6 +349,7 @@ export default async function ProfilePage({ params }: Props) {
                             match.away_score != null ? (
                               <span className="mx-1 text-muted-foreground">
                                 {match.home_score}–{match.away_score}
+                                {actualAdv && ` (${actualAdv})`}
                               </span>
                             ) : (
                               <span className="mx-1 text-muted-foreground">
@@ -328,6 +364,7 @@ export default async function ProfilePage({ params }: Props) {
                             {pred ? (
                               <span>
                                 {pred.home_score_pred}–{pred.away_score_pred}
+                                {predAdv && ` (${predAdv})`}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">—</span>
@@ -359,7 +396,8 @@ export default async function ProfilePage({ params }: Props) {
                 {isCurrent ? t("currentRoundNote") : t("upcomingNote")}
               </p>
             )}
-          </section>
+            </div>
+          </details>
         );
       })}
     </div>

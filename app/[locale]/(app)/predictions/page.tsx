@@ -9,6 +9,7 @@ import { MatchCard } from "@/components/predictions/match-card";
 import { CollapsibleRound } from "@/components/predictions/collapsible-round";
 import { RoundControls } from "@/components/predictions/round-controls";
 import { PredictionsForm } from "@/components/predictions/predictions-form";
+import { ViewToggle, MatchGrid } from "@/components/predictions/view-mode";
 import { Countdown } from "@/components/countdown";
 import { ExtraTimeBanner } from "@/components/predictions/extra-time-banner";
 
@@ -179,8 +180,15 @@ export default async function PredictionsPage({ params }: Props) {
         {/* Extra-time scoring note */}
         <ExtraTimeBanner message={t("extraTimeNote")} />
 
-        {/* Expand / collapse all + open-state persistence */}
-        {roundsList.length > 0 && <RoundControls labels={tControls} />}
+        {/* View toggle + expand / collapse all (open-state persistence) */}
+        {roundsList.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ViewToggle
+              labels={{ viewCards: t("viewCards"), viewList: t("viewList") }}
+            />
+            <RoundControls labels={tControls} />
+          </div>
+        )}
 
         {/* Round sections */}
         {roundsList.map((round) => {
@@ -207,7 +215,7 @@ export default async function PredictionsPage({ params }: Props) {
               badgeLabel={isLocked ? t("locked") : t("open")}
               defaultOpen={defaultOpen}
             >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <MatchGrid>
                 {matches.map((match) => {
                   const ht = Array.isArray(match.home_team)
                     ? match.home_team[0]
@@ -235,7 +243,9 @@ export default async function PredictionsPage({ params }: Props) {
                       status={match.status}
                       actualHome={match.home_score}
                       actualAway={match.away_score}
-                      actualPenaltyWinnerId={match.penalty_winner_team_id}
+                      actualAdvancerId={
+                        match.advancing_team_id ?? match.penalty_winner_team_id
+                      }
                       isKnockout={round.stage === "knockout"}
                       isLocked={isLocked}
                       prediction={predByMatchId.get(match.id) ?? null}
@@ -244,7 +254,7 @@ export default async function PredictionsPage({ params }: Props) {
                     />
                   );
                 })}
-              </div>
+              </MatchGrid>
             </CollapsibleRound>
           );
         })}

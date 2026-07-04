@@ -4,8 +4,10 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { savePrediction } from "@/lib/actions/predictions";
 import { usePredictionsForm } from "@/components/predictions/predictions-form";
+import { useViewMode } from "@/components/predictions/view-mode";
 import { MatchStatsDialog } from "@/components/predictions/match-stats-dialog";
 import { cn } from "@/lib/utils";
+import { drawAdvancerCode } from "@/lib/scoring/advancer";
 import type { MatchPredictionSummary } from "@/lib/scoring/prediction-summary";
 import { ScoreInput } from "@/components/predictions/score-input";
 
@@ -35,7 +37,8 @@ interface MatchCardProps {
   status: string;
   actualHome: number | null;
   actualAway: number | null;
-  actualPenaltyWinnerId: string | null;
+  /** Actual advancer on a drawn KO match (advancing team ?? pens winner). */
+  actualAdvancerId: string | null;
   isKnockout: boolean;
   isLocked: boolean;
   prediction: ExistingPrediction | null;
@@ -70,7 +73,7 @@ export function MatchCard({
   status,
   actualHome,
   actualAway,
-  actualPenaltyWinnerId,
+  actualAdvancerId,
   isKnockout,
   isLocked,
   prediction,
@@ -102,6 +105,19 @@ export function MatchCard({
   const [, startTransition] = useTransition();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+
+  // Purely presentational: switches className strings below, nothing else.
+  const isList = useViewMode() === "list";
+
+  // Advancer code for a drawn KO result — renders "1 – 1 (EGY)", not "(pens)".
+  const actualAdvCode = drawAdvancerCode({
+    isKnockout,
+    homeScore: actualHome,
+    awayScore: actualAway,
+    advancerId: actualAdvancerId,
+    home: homeTeam,
+    away: awayTeam,
+  });
 
   const showPenPicker =
     isKnockout &&
@@ -223,26 +239,160 @@ export function MatchCard({
     minute: "2-digit",
   });
 
+  // ── Trailing elements, defined once and placed per view mode ────────────────
+  // Grid stacks them centered under the teams row (original layout); list puts
+  // them inline at the right edge of the row. Handlers/state are shared — only
+  // the placement differs.
+
+  const actualResultEl = status === "finished" &&
+    actualHome != null &&
+    actualAway != null && (
+      <span className="text-xs text-muted-foreground">
+        {actualHome} – {actualAway}
+        {actualAdvCode && ` (${actualAdvCode})`}
+      </span>
+    );
+
+  const lockedPenPickEl = isLocked &&
+    isKnockout &&
+    prediction?.penalty_winner_team_id && (
+      <span className="text-xs text-muted-foreground">
+        {t.penaltyWinner}:{" "}
+        <span className="font-medium">
+          {prediction.penalty_winner_team_id === homeTeam?.id
+            ? homeTeam?.name
+            : awayTeam?.name}
+        </span>
+      </span>
+    );
+
+  const penButtons =
+    !isLocked && showPenPicker && homeTeam && awayTeam
+      ? [homeTeam, awayTeam].map((team) => (
+          <button
+            key={team.id}
+            type="button"
+            onClick={() => setPenWinner(team.id)}
+            className={cn(
+              "rounded border px-3 py-1 text-xs font-medium transition-colors",
+              penWinner === team.id
+                ? "border-primary bg-primary text-white"
+                : "border-border bg-background hover:border-primary"
+            )}
+          >
+            {team.name}
+          </button>
+        ))
+      : null;
+
+  const pointsEl =
+    isLocked &&
+    (prediction ? (
+      <span
+        className={cn(
+          "text-sm font-bold",
+          (prediction.points_awarded ?? 0) > 0
+            ? "text-green-600"
+            : "text-muted-foreground"
+        )}
+      >
+        {prediction.points_awarded ?? "—"} {t.pts}
+      </span>
+    ) : (
+      <span className="text-xs text-muted-foreground">{t.noPrediction}</span>
+    ));
+
+  const statsEl = isLocked && summary && summary.total > 0 && (
+    <MatchStatsDialog
+      homeCode={homeTeam?.code ?? ""}
+      awayCode={awayTeam?.code ?? ""}
+      summary={summary}
+    />
+  );
+
+  const saveButtonEl = !isLocked && (
+    <button
+      type="button"
+      onClick={handleSave}
+      disabled={saveStatus === "saving" || (!isDirty && saveStatus !== "error")}
+      className={cn(
+        "rounded border px-4 py-1 text-xs font-medium transition-colors",
+        saveStatus === "saved"
+          ? "border-transparent bg-green-600 text-white dark:bg-green-700 dark:text-white"
+          : saveStatus === "error"
+            ? "border-transparent bg-red-600 text-white dark:bg-red-700 dark:text-white"
+            : "bg-primary/10 hover:bg-primary/20 disabled:opacity-40 dark:border-primary dark:bg-primary/20 dark:text-primary-foreground dark:hover:bg-primary/30 dark:disabled:opacity-60"
+      )}
+      style={
+        saveStatus !== "saved" && saveStatus !== "error"
+          ? isDark
+            ? { borderColor: "#4A6FBE", color: "#F5F0E6" }
+            : { borderColor: "#1A2855", color: "#1A2855" }
+          : undefined
+      }
+    >
+      {saveStatus === "saving"
+        ? t.saving
+        : saveStatus === "saved"
+          ? t.saved
+          : saveStatus === "error"
+            ? t.errorSaving
+            : t.save}
+    </button>
+  );
+
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
-      {/* Kickoff time */}
-      <p className="mb-2 text-center text-xs text-muted-foreground">
+    <div
+      className={cn(
+        "rounded-lg border bg-card shadow-sm",
+        isList ? "px-3 py-1.5" : "p-3"
+      )}
+    >
+      {/* Kickoff time (in list view: mobile-only line; inline on sm+) */}
+      <p
+        className={cn(
+          "text-xs text-muted-foreground",
+          isList ? "mb-1 text-left sm:hidden" : "mb-2 text-center"
+        )}
+      >
         {kickoffStr}
       </p>
 
       {/* Teams + inputs */}
-      <div className="flex items-center gap-2">
+      <div className={cn("flex items-center gap-2", isList && "flex-wrap")}>
+        {isList && (
+          <span className="hidden w-32 shrink-0 text-xs text-muted-foreground sm:block">
+            {kickoffStr}
+          </span>
+        )}
         {/* Home team */}
-        <div className="flex flex-1 flex-col items-center gap-1">
+        {/* In list view, row-reverse puts the flag right of the name, hugging
+            the first score box (DOM order stays identical to grid view). */}
+        <div
+          className={cn(
+            "flex flex-1",
+            isList
+              ? "min-w-0 flex-row-reverse items-center justify-start gap-1.5"
+              : "flex-col items-center gap-1"
+          )}
+        >
           {homeTeam?.flag_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={homeTeam.flag_url}
               alt={homeTeam.code}
-              className="h-6 w-8 object-contain"
+              className={cn(
+                "object-contain",
+                isList ? "h-5 w-7 shrink-0" : "h-6 w-8"
+              )}
             />
           )}
-          <span className="text-center text-xs font-medium leading-tight">
+          <span
+            className={cn(
+              "text-xs font-medium leading-tight",
+              isList ? "truncate text-right" : "text-center"
+            )}
+          >
             {homeTeam?.name ?? t.noTeam}
           </span>
         </div>
@@ -273,132 +423,82 @@ export function MatchCard({
         </div>
 
         {/* Away team */}
-        <div className="flex flex-1 flex-col items-center gap-1">
+        <div
+          className={cn(
+            "flex flex-1",
+            isList
+              ? "min-w-0 flex-row items-center justify-start gap-1.5"
+              : "flex-col items-center gap-1"
+          )}
+        >
           {awayTeam?.flag_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={awayTeam.flag_url}
               alt={awayTeam.code}
-              className="h-6 w-8 object-contain"
+              className={cn(
+                "object-contain",
+                isList ? "h-5 w-7 shrink-0" : "h-6 w-8"
+              )}
             />
           )}
-          <span className="text-center text-xs font-medium leading-tight">
+          <span
+            className={cn(
+              "text-xs font-medium leading-tight",
+              isList ? "truncate text-left" : "text-center"
+            )}
+          >
             {awayTeam?.name ?? t.noTeam}
           </span>
         </div>
+
+        {/* List view: everything else inline, in a fixed-width trailing area
+            so the score boxes/flags stay in a straight column across rows
+            (long content wraps inside instead of shifting the row). */}
+        {isList && (
+          <div className="ml-auto flex w-44 shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+            {actualResultEl}
+            {lockedPenPickEl}
+            {penButtons && (
+              <span className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">
+                  {t.penaltyWinner}
+                </span>
+                {penButtons}
+              </span>
+            )}
+            {pointsEl}
+            {statsEl}
+            {saveButtonEl}
+          </div>
+        )}
       </div>
 
-      {/* Actual result (when finished) */}
-      {status === "finished" && actualHome != null && actualAway != null && (
-        <p className="mt-1 text-center text-xs text-muted-foreground">
-          {actualHome} – {actualAway}
-          {actualPenaltyWinnerId && " (pens)"}
-        </p>
-      )}
-
-      {/* Penalty winner pick (locked KO draws) */}
-      {isLocked && isKnockout && prediction?.penalty_winner_team_id && (
-        <p className="mt-1 text-center text-xs text-muted-foreground">
-          {t.penaltyWinner}:{" "}
-          <span className="font-medium">
-            {prediction.penalty_winner_team_id === homeTeam?.id
-              ? homeTeam?.name
-              : awayTeam?.name}
-          </span>
-        </p>
-      )}
-
-      {/* Penalty winner picker (editable KO draws) */}
-      {!isLocked && showPenPicker && homeTeam && awayTeam && (
-        <div className="mt-2">
-          <p className="mb-1 text-center text-xs text-muted-foreground">
-            {t.penaltyWinner}
-          </p>
-          <div className="flex justify-center gap-2">
-            {[homeTeam, awayTeam].map((team) => (
-              <button
-                key={team.id}
-                type="button"
-                onClick={() => setPenWinner(team.id)}
-                className={cn(
-                  "rounded border px-3 py-1 text-xs font-medium transition-colors",
-                  penWinner === team.id
-                    ? "border-primary bg-primary text-white"
-                    : "border-border bg-background hover:border-primary"
-                )}
-              >
-                {team.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Points (locked round) */}
-      {isLocked && (
-        <div className="mt-2 text-center">
-          {prediction ? (
-            <span
-              className={cn(
-                "text-sm font-bold",
-                (prediction.points_awarded ?? 0) > 0
-                  ? "text-green-600"
-                  : "text-muted-foreground"
-              )}
-            >
-              {prediction.points_awarded ?? "—"} {t.pts}
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">
-              {t.noPrediction}
-            </span>
+      {/* Grid view: original stacked layout under the teams row */}
+      {!isList && (
+        <>
+          {actualResultEl && (
+            <p className="mt-1 text-center">{actualResultEl}</p>
           )}
-        </div>
-      )}
-
-      {/* Stats button (locked rounds with available predictions) */}
-      {isLocked && summary && summary.total > 0 && (
-        <div className="mt-2 flex justify-center">
-          <MatchStatsDialog
-            homeCode={homeTeam?.code ?? ""}
-            awayCode={awayTeam?.code ?? ""}
-            summary={summary}
-          />
-        </div>
-      )}
-
-      {/* Save button (editable rounds) */}
-      {!isLocked && (
-        <div className="mt-2 flex justify-center">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveStatus === "saving" || (!isDirty && saveStatus !== "error")}
-            className={cn(
-              "rounded border px-4 py-1 text-xs font-medium transition-colors",
-              saveStatus === "saved"
-                ? "border-transparent bg-green-600 text-white dark:bg-green-700 dark:text-white"
-                : saveStatus === "error"
-                  ? "border-transparent bg-red-600 text-white dark:bg-red-700 dark:text-white"
-                  : "bg-primary/10 hover:bg-primary/20 disabled:opacity-40 dark:border-primary dark:bg-primary/20 dark:text-primary-foreground dark:hover:bg-primary/30 dark:disabled:opacity-60"
-            )}
-            style={
-              saveStatus !== "saved" && saveStatus !== "error"
-                ? isDark
-                  ? { borderColor: "#4A6FBE", color: "#F5F0E6" }
-                  : { borderColor: "#1A2855", color: "#1A2855" }
-                : undefined
-            }
-          >
-            {saveStatus === "saving"
-              ? t.saving
-              : saveStatus === "saved"
-                ? t.saved
-                : saveStatus === "error"
-                  ? t.errorSaving
-                  : t.save}
-          </button>
-        </div>
+          {lockedPenPickEl && (
+            <p className="mt-1 text-center">{lockedPenPickEl}</p>
+          )}
+          {penButtons && (
+            <div className="mt-2">
+              <p className="mb-1 text-center text-xs text-muted-foreground">
+                {t.penaltyWinner}
+              </p>
+              <div className="flex justify-center gap-2">{penButtons}</div>
+            </div>
+          )}
+          {pointsEl && <div className="mt-2 text-center">{pointsEl}</div>}
+          {statsEl && (
+            <div className="mt-2 flex justify-center">{statsEl}</div>
+          )}
+          {saveButtonEl && (
+            <div className="mt-2 flex justify-center">{saveButtonEl}</div>
+          )}
+        </>
       )}
     </div>
   );
