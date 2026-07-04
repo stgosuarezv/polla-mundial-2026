@@ -155,7 +155,7 @@
     "calzometroTitle": "The Calzómetro 🩲",
     "calzometroSubtitle": "Great minds picked alike this round",
     "calzometroEqualCount": "{equal}/{both} identical picks",
-    "calzometroTied": "{count, plural, one {+# more pair tied} other {+# more pairs tied}}",
+    "calzometroMore": "{count, plural, one {+# more matching pair} other {+# more matching pairs}}",
     "calzonDialogSubtitle": "{equal}/{both} identical picks · {round}",
     "calzometroFootnote": "Only matches where both players submitted a pick are counted."
   },

@@ -41,8 +41,12 @@ export interface CalzometroResult {
   roundNameKey: string;
   matchCount: number;
   topPairs: CalzometroPair[];
-  tiedPairCount: number;
+  /** Eligible pairs beyond the ones shown in topPairs. */
+  morePairCount: number;
 }
+
+/** How many pairs the section shows before collapsing into a "+N more" note. */
+const MAX_PAIRS = 5;
 
 interface Pick {
   key: string;
@@ -71,15 +75,16 @@ function buildPick(pred: CalzometroPred, match: CalzometroMatch): Pick {
 }
 
 /**
- * "El Calzómetro": finds the pair of players with the most identical picks in
- * the latest locked round. Pure banter — reveals nothing that isn't already
- * public post-lock in the match-stats browser. Symmetric by construction (the
- * data has no direction, so neither does the output).
+ * "El Calzómetro": ranks the pairs of players with the most identical picks in
+ * the latest locked round (up to MAX_PAIRS shown). Pure banter — reveals
+ * nothing that isn't already public post-lock in the match-stats browser.
+ * Symmetric by construction (the data has no direction, so neither does the
+ * output).
  *
- * Returns null (section hidden) when: no locked matches, fewer than two
- * participants, no eligible pair (both-submitted >= 2 and >= 1 identical), or
- * the top pair matches on less than half its shared picks (a limp calzón is
- * not worth announcing).
+ * A pair is eligible when both submitted >= 2 shared picks, >= 1 identical,
+ * and at least half its shared picks are identical (a limp calzón is not
+ * worth announcing). Returns null (section hidden) when there are no locked
+ * matches, fewer than two participants, or no eligible pair.
  */
 export function computeCalzometro(
   lockedMatches: CalzometroMatch[],
@@ -133,7 +138,9 @@ export function computeCalzometro(
         bothCount++;
         if (a.key === b.key) equalCount++;
       }
-      if (bothCount >= 2 && equalCount >= 1) {
+      // Per-pair 50% floor: a pair agreeing on under half its shared picks is
+      // base-rate noise, no matter where it would rank.
+      if (bothCount >= 2 && equalCount >= 1 && equalCount / bothCount >= 0.5) {
         candidates.push({
           a: participants[i]!,
           b: participants[j]!,
@@ -156,15 +163,7 @@ export function computeCalzometro(
       pairLabel(x).localeCompare(pairLabel(y))
   );
 
-  const top = candidates[0]!;
-  // A "top pair" agreeing on under half its shared picks is base-rate noise.
-  if (top.equalCount / top.bothCount < 0.5) return null;
-
-  const tied = candidates.filter(
-    (c) => c.equalCount === top.equalCount && c.bothCount === top.bothCount
-  );
-
-  const topPairs: CalzometroPair[] = tied.slice(0, 3).map((c) => {
+  const topPairs: CalzometroPair[] = candidates.slice(0, MAX_PAIRS).map((c) => {
     // Alphabetical display order — symmetric, never directional.
     const [firstId, secondId] = [c.a, c.b].sort((x, y) =>
       nameOf(x).localeCompare(nameOf(y))
@@ -197,6 +196,6 @@ export function computeCalzometro(
     roundNameKey: roundMatches[0]!.roundNameKey,
     matchCount: roundMatches.length,
     topPairs,
-    tiedPairCount: tied.length,
+    morePairCount: candidates.length - topPairs.length,
   };
 }

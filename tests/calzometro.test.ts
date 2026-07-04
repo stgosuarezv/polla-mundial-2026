@@ -66,7 +66,8 @@ describe("computeCalzometro", () => {
     const r = computeCalzometro(matches, preds, names)!;
     expect(r.roundNameKey).toBe("rounds.group_3");
     expect(r.matchCount).toBe(3);
-    expect(r.tiedPairCount).toBe(1);
+    expect(r.topPairs).toHaveLength(1);
+    expect(r.morePairCount).toBe(0);
     const p = r.topPairs[0]!;
     expect([p.userAName, p.userBName]).toEqual(["Ana", "Beto"]);
     expect(p.equalCount).toBe(2);
@@ -111,7 +112,7 @@ describe("computeCalzometro", () => {
     expect(p.rows[1]!.equal).toBe(true);
   });
 
-  it("returns tied top pairs (same equal AND both counts)", () => {
+  it("shows every eligible pair, ranked", () => {
     const matches = [match("m1"), match("m2")];
     const preds = [
       pred("u1", "m1", 1, 0),
@@ -123,8 +124,21 @@ describe("computeCalzometro", () => {
     ];
     // all three pairs are 2/2
     const r = computeCalzometro(matches, preds, names)!;
-    expect(r.tiedPairCount).toBe(3);
     expect(r.topPairs).toHaveLength(3);
+    expect(r.morePairCount).toBe(0);
+  });
+
+  it("caps the list at 5 pairs and reports the overflow", () => {
+    const manyNames = new Map([...names, ["u4", "Dani"]]);
+    const matches = [match("m1"), match("m2")];
+    // 4 users all identical on both matches → C(4,2) = 6 eligible pairs
+    const preds = ["u1", "u2", "u3", "u4"].flatMap((u) => [
+      pred(u, "m1", 1, 0),
+      pred(u, "m2", 2, 2),
+    ]);
+    const r = computeCalzometro(matches, preds, manyNames)!;
+    expect(r.topPairs).toHaveLength(5);
+    expect(r.morePairCount).toBe(1);
   });
 
   it("prefers the tighter calzón on equal hits (3/3 over 3/4)", () => {
@@ -146,10 +160,10 @@ describe("computeCalzometro", () => {
     ];
     const r = computeCalzometro(matches, preds, names)!;
     expect(r.topPairs[0]!.bothCount).toBe(3);
-    expect(r.tiedPairCount).toBe(1);
+    expect(r.topPairs[0]!.equalCount).toBe(3);
   });
 
-  it("hides when the top pair agrees on under half its picks", () => {
+  it("drops pairs agreeing on under half their picks (per-pair floor)", () => {
     const matches = [match("m1"), match("m2"), match("m3")];
     const preds = [
       pred("u1", "m1", 1, 0),
@@ -159,7 +173,24 @@ describe("computeCalzometro", () => {
       pred("u1", "m3", 3, 0),
       pred("u2", "m3", 6, 6),
     ];
+    // only pair is 1/3 → below the floor → section hidden
     expect(computeCalzometro(matches, preds, names)).toBeNull();
+  });
+
+  it("a below-floor pair with more hits cannot hide a perfect pair", () => {
+    const ms = Array.from({ length: 8 }, (_, i) => match(`m${i + 1}`));
+    const preds = [
+      // u1-u2: 3 equal of 8 shared (37.5%, below floor) — more absolute hits
+      ...ms.map((m, i) => pred("u1", m.id, i < 3 ? 1 : 7, 0)),
+      ...ms.map((m, i) => pred("u2", m.id, i < 3 ? 1 : 8, 0)),
+      // u1-u3: 2 equal of 2 shared (perfect); u2-u3: 0 equal → ineligible
+      pred("u3", "m4", 7, 0),
+      pred("u3", "m5", 7, 0),
+    ];
+    const r = computeCalzometro(ms, preds, names)!;
+    expect(r.topPairs[0]!.equalCount).toBe(2);
+    expect(r.topPairs[0]!.bothCount).toBe(2);
+    expect(r.topPairs).toHaveLength(1);
   });
 
   it("hides for <2 participants, 1-match rounds, and empty input", () => {

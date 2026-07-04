@@ -30,11 +30,9 @@ export async function CalzometroSection({
             roundLabel={roundLabel}
           />
         ))}
-        {result.tiedPairCount > result.topPairs.length && (
+        {result.morePairCount > 0 && (
           <p className="text-muted-foreground text-xs">
-            {t("calzometroTied", {
-              count: result.tiedPairCount - result.topPairs.length,
-            })}
+            {t("calzometroMore", { count: result.morePairCount })}
           </p>
         )}
         <p className="text-muted-foreground text-xs">

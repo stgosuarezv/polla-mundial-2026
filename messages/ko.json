@@ -155,7 +155,7 @@
     "calzometroTitle": "엘 칼소메트로 🩲",
     "calzometroSubtitle": "이번 라운드, 텔레파시가 통한 두 사람은?",
     "calzometroEqualCount": "동일한 픽 {equal}/{both}",
-    "calzometroTied": "{count, plural, other {공동 순위 페어 +#}}",
+    "calzometroMore": "{count, plural, other {일치 페어 +#}}",
     "calzonDialogSubtitle": "동일한 픽 {equal}/{both} · {round}",
     "calzometroFootnote": "두 명 모두 예측을 제출한 경기만 계산됩니다."
   },
