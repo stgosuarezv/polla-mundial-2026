@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { actualAdvancerId, drawAdvancerCode } from "@/lib/scoring/advancer";
 
 interface Props {
   params: Promise<{ locale: string; userId: string }>;
@@ -38,7 +39,7 @@ export default async function UserPredictionsPage({ params }: Props) {
         `id, stage, name_key, order_index, lock_time,
          matches (
            id, kickoff_at, status,
-           home_score, away_score, penalty_winner_team_id,
+           home_score, away_score, penalty_winner_team_id, advancing_team_id,
            home_team:home_team_id ( id, code, name_en, name_es, name_ko ),
            away_team:away_team_id ( id, code, name_en, name_es, name_ko )
          )`
@@ -144,6 +145,25 @@ export default async function UserPredictionsPage({ params }: Props) {
                         ? match.away_team[0]
                         : match.away_team;
                       const pred = predMap.get(match.id);
+                      const isKnockout = round.stage === "knockout";
+                      const actualAdv = drawAdvancerCode({
+                        isKnockout,
+                        homeScore: match.home_score,
+                        awayScore: match.away_score,
+                        advancerId: actualAdvancerId(match),
+                        home: ht ?? null,
+                        away: at ?? null,
+                      });
+                      const predAdv = pred
+                        ? drawAdvancerCode({
+                            isKnockout,
+                            homeScore: pred.home_score_pred,
+                            awayScore: pred.away_score_pred,
+                            advancerId: pred.penalty_winner_team_id,
+                            home: ht ?? null,
+                            away: at ?? null,
+                          })
+                        : null;
 
                       return (
                         <tr key={match.id} className="hover:bg-muted/20">
@@ -155,6 +175,7 @@ export default async function UserPredictionsPage({ params }: Props) {
                             match.away_score != null ? (
                               <span className="mx-1 text-muted-foreground">
                                 {match.home_score}–{match.away_score}
+                                {actualAdv && ` (${actualAdv})`}
                               </span>
                             ) : (
                               <span className="mx-1 text-muted-foreground">
@@ -169,6 +190,7 @@ export default async function UserPredictionsPage({ params }: Props) {
                             {pred ? (
                               <span>
                                 {pred.home_score_pred}–{pred.away_score_pred}
+                                {predAdv && ` (${predAdv})`}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">—</span>

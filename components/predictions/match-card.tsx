@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { savePrediction } from "@/lib/actions/predictions";
 import { usePredictionsForm } from "@/components/predictions/predictions-form";
+import { useViewMode } from "@/components/predictions/view-mode";
 import { MatchStatsDialog } from "@/components/predictions/match-stats-dialog";
 import { cn } from "@/lib/utils";
 import type { MatchPredictionSummary } from "@/lib/scoring/prediction-summary";
@@ -102,6 +103,9 @@ export function MatchCard({
   const [, startTransition] = useTransition();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+
+  // Purely presentational: switches className strings below, nothing else.
+  const isList = useViewMode() === "list";
 
   const showPenPicker =
     isKnockout &&
@@ -224,25 +228,55 @@ export function MatchCard({
   });
 
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
-      {/* Kickoff time */}
-      <p className="mb-2 text-center text-xs text-muted-foreground">
+    <div
+      className={cn(
+        "rounded-lg border bg-card shadow-sm",
+        isList ? "px-3 py-2" : "p-3"
+      )}
+    >
+      {/* Kickoff time (in list view: mobile-only line; inline on sm+) */}
+      <p
+        className={cn(
+          "text-xs text-muted-foreground",
+          isList ? "mb-1 text-left sm:hidden" : "mb-2 text-center"
+        )}
+      >
         {kickoffStr}
       </p>
 
       {/* Teams + inputs */}
       <div className="flex items-center gap-2">
+        {isList && (
+          <span className="hidden w-32 shrink-0 text-xs text-muted-foreground sm:block">
+            {kickoffStr}
+          </span>
+        )}
         {/* Home team */}
-        <div className="flex flex-1 flex-col items-center gap-1">
+        <div
+          className={cn(
+            "flex flex-1",
+            isList
+              ? "min-w-0 flex-row items-center justify-end gap-1.5"
+              : "flex-col items-center gap-1"
+          )}
+        >
           {homeTeam?.flag_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={homeTeam.flag_url}
               alt={homeTeam.code}
-              className="h-6 w-8 object-contain"
+              className={cn(
+                "object-contain",
+                isList ? "h-5 w-7 shrink-0" : "h-6 w-8"
+              )}
             />
           )}
-          <span className="text-center text-xs font-medium leading-tight">
+          <span
+            className={cn(
+              "text-xs font-medium leading-tight",
+              isList ? "truncate text-right" : "text-center"
+            )}
+          >
             {homeTeam?.name ?? t.noTeam}
           </span>
         </div>
@@ -273,16 +307,31 @@ export function MatchCard({
         </div>
 
         {/* Away team */}
-        <div className="flex flex-1 flex-col items-center gap-1">
+        <div
+          className={cn(
+            "flex flex-1",
+            isList
+              ? "min-w-0 flex-row items-center justify-start gap-1.5"
+              : "flex-col items-center gap-1"
+          )}
+        >
           {awayTeam?.flag_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={awayTeam.flag_url}
               alt={awayTeam.code}
-              className="h-6 w-8 object-contain"
+              className={cn(
+                "object-contain",
+                isList ? "h-5 w-7 shrink-0" : "h-6 w-8"
+              )}
             />
           )}
-          <span className="text-center text-xs font-medium leading-tight">
+          <span
+            className={cn(
+              "text-xs font-medium leading-tight",
+              isList ? "truncate text-left" : "text-center"
+            )}
+          >
             {awayTeam?.name ?? t.noTeam}
           </span>
         </div>
