@@ -201,12 +201,13 @@ export function ScoreboardTable({
   // Show real rank-change arrows in normal mode when we have previous-rank data
   const hasPrevRanks = showLastMatch && Object.keys(prevRankByUser).length > 0;
 
-  // When simulating, show the first what-if match that is not yet complete —
-  // i.e. either score box is still blank. Uses the shared isMatchInputComplete
-  // predicate so this check stays in sync with the projection logic.
-  const nextUnsimulatedMatch = simulating
-    ? (whatIfMatches.find((m) => !isMatchInputComplete(inputs[m.id])) ?? null)
-    : null;
+  // When simulating, show up to the next 4 what-if matches that are not yet
+  // complete — i.e. either score box is still blank. Uses the shared
+  // isMatchInputComplete predicate so this check stays in sync with the
+  // projection logic. whatIfMatches is already ordered by kickoff ascending.
+  const nextUnsimulatedMatches = simulating
+    ? whatIfMatches.filter((m) => !isMatchInputComplete(inputs[m.id])).slice(0, 4)
+    : [];
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -330,16 +331,19 @@ export function ScoreboardTable({
                     {t("prize")}
                   </th>
                   {simulating ? (
-                    nextUnsimulatedMatch ? (
-                      <th className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap">
+                    nextUnsimulatedMatches.map((m) => (
+                      <th
+                        key={m.id}
+                        className="px-3 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                      >
                         <div className="text-xs">
-                          {nextUnsimulatedMatch.homeCode}–{nextUnsimulatedMatch.awayCode}
+                          {m.homeCode}–{m.awayCode}
                         </div>
                         <div className="text-[10px] font-normal text-muted-foreground/70">
-                          {nextUnsimulatedMatch.kickoffLabel}
+                          {m.kickoffLabel}
                         </div>
                       </th>
-                    ) : null
+                    ))
                   ) : (
                     nextMatches.filter((m) => m.roundClosed).map((m) => (
                       <th
@@ -551,24 +555,24 @@ export function ScoreboardTable({
 
                       {/* Next-match prediction preview columns */}
                       {simulating ? (
-                        nextUnsimulatedMatch ? (
-                          <td className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap">
+                        nextUnsimulatedMatches.map((m) => (
+                          <td
+                            key={m.id}
+                            className="px-3 py-2.5 text-center text-muted-foreground whitespace-nowrap"
+                          >
                             {(() => {
-                              const pred =
-                                predByKey[
-                                  `${row.userId}:${nextUnsimulatedMatch.id}`
-                                ];
+                              const pred = predByKey[`${row.userId}:${m.id}`];
                               if (!pred) return "—";
                               const score = `${pred.home}–${pred.away}`;
                               const winnerCode = pred.penaltyWinnerId
-                                ? pred.penaltyWinnerId === nextUnsimulatedMatch.homeTeamId
-                                  ? nextUnsimulatedMatch.homeCode
-                                  : nextUnsimulatedMatch.awayCode
+                                ? pred.penaltyWinnerId === m.homeTeamId
+                                  ? m.homeCode
+                                  : m.awayCode
                                 : null;
                               return winnerCode ? `${score} (${winnerCode})` : score;
                             })()}
                           </td>
-                        ) : null
+                        ))
                       ) : (
                         nextMatches.filter((m) => m.roundClosed).map((m) => (
                           <td
