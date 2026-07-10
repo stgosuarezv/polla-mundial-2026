@@ -133,10 +133,8 @@ export default async function ScoreboardPage({ params }: Props) {
          rounds!inner ( id, name_key, lock_time, stage, order_index )`
       )
       .order("kickoff_at", { ascending: true }),
-    // Take the soonest match(es) not yet finished — including in-play ones, so
-    // the stats stay visible while a match is being played. Two simultaneous
-    // group matches are common (same kickoff_at) so we include all of them.
-    // Limit to 4 just in case.
+    // Take the next 4 matches not yet finished — including in-play ones, so
+    // the stats stay visible while a match is being played.
     supabase
       .from("matches")
       .select(
@@ -176,9 +174,7 @@ export default async function ScoreboardPage({ params }: Props) {
 
   const whatIfMatchIds = lockedMatchesForBrowser.map((m) => m.id);
 
-  const earliestKickoff = upcoming?.[0]?.kickoff_at;
   const nextMatchesRaw = (upcoming ?? [])
-    .filter((m) => m.kickoff_at === earliestKickoff)
     .map((m) => {
       const home = Array.isArray(m.home_team) ? m.home_team[0] : m.home_team;
       const away = Array.isArray(m.away_team) ? m.away_team[0] : m.away_team;
@@ -192,7 +188,8 @@ export default async function ScoreboardPage({ params }: Props) {
       };
     });
 
-  // Predictions only for matches whose round has already locked.
+  // Predictions only for the next matches whose round has already locked
+  // (each of the up-to-4 upcoming matches gets its own column once locked).
   const closedNextIds = nextMatchesRaw
     .filter((m) => m.roundClosed)
     .map((m) => m.id);
