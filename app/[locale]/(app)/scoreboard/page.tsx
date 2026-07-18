@@ -14,7 +14,10 @@ import {
 } from "@/components/scoreboard/match-stats-browser";
 import type { MatchStatsItem } from "@/components/scoreboard/match-stats-card";
 import { ScoreboardTable } from "@/components/scoreboard/scoreboard-table";
-import type { NextMatchCol } from "@/components/scoreboard/scoreboard-table";
+import type {
+  NextMatchCol,
+  PodioCells,
+} from "@/components/scoreboard/scoreboard-table";
 import { TrajectorySection } from "@/components/scoreboard/trajectory-section";
 import { PdfButton } from "@/components/rules/pdf-button";
 import { CalzometroSection } from "@/components/scoreboard/calzometro-section";
@@ -104,6 +107,8 @@ export default async function ScoreboardPage({ params }: Props) {
     { data: completionData },
     { data: allMatchesWithRound },
     { data: upcoming },
+    { data: podioRound },
+    { data: podioPredsRaw },
   ] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("profiles").select("id, display_name"),
@@ -146,6 +151,18 @@ export default async function ScoreboardPage({ params }: Props) {
       .neq("status", "finished")
       .order("kickoff_at", { ascending: true })
       .limit(4),
+    // Podio round lock — gates whether other players' podium picks are
+    // readable at all (RLS: podio: view others when locked).
+    supabase.from("rounds").select("lock_time").eq("stage", "podio").maybeSingle(),
+    // Everyone's podium picks. Before the podio round locks, RLS returns only
+    // the caller's own row; that's fine since the table only renders these
+    // columns once podioLocked is true. ~1 row/user, no 1,000-row-cap concern.
+    supabase.from("podio_predictions").select(
+      `user_id,
+       champion:teams!champion_team_id ( code, flag_url ),
+       runner_up:teams!runner_up_team_id ( code, flag_url ),
+       third_place:teams!third_place_team_id ( code, flag_url )`
+    ),
   ]);
 
   // ── Derived values needed for batch 2 ───────────────────────────────────────
@@ -616,6 +633,29 @@ export default async function ScoreboardPage({ params }: Props) {
     { made: number; total: number; podioSlots: number }
   > = Object.fromEntries(completionByUserMap);
 
+  // ── Podium (1st/2nd/3rd place) pick columns ─────────────────────────────────
+  // Other players' rows are only visible once the podio round locks (RLS:
+  // "podio: view others when locked"); until then podioPredsRaw only contains
+  // the caller's own row, so gate rendering entirely on podioLocked.
+  const podioLocked = !!podioRound && podioRound.lock_time <= nowIso;
+
+  type PodioTeamLite = { code: string; flag_url: string | null };
+  function podioCell(
+    team: PodioTeamLite | PodioTeamLite[] | null | undefined
+  ): PodioCells["first"] {
+    const t = Array.isArray(team) ? team[0] : team;
+    return t ? { code: t.code, flagUrl: t.flag_url } : null;
+  }
+
+  const podioByUser: Record<string, PodioCells> = {};
+  for (const p of podioPredsRaw ?? []) {
+    podioByUser[p.user_id] = {
+      first: podioCell(p.champion as PodioTeamLite | PodioTeamLite[] | null),
+      second: podioCell(p.runner_up as PodioTeamLite | PodioTeamLite[] | null),
+      third: podioCell(p.third_place as PodioTeamLite | PodioTeamLite[] | null),
+    };
+  }
+
   // Serialize lastMatchPts Map → plain Record for client component
   const lastMatchPts: Record<string, number> = Object.fromEntries(lastMatchPtsMap);
   const showLastMatch = lastMatchIds.size > 0;
@@ -691,6 +731,8 @@ export default async function ScoreboardPage({ params }: Props) {
           nextMatches={nextMatches}
           nextPredByKey={nextPredByKey}
           completionByUser={completionByUser}
+          podioByUser={podioByUser}
+          podioLocked={podioLocked}
           whatIfMatches={whatIfMatches}
           predByKey={predByKey}
           realPtsByKey={realPtsByKey}

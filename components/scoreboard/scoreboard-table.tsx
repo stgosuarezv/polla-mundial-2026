@@ -96,6 +96,17 @@ export interface NextMatchCol {
   roundClosed: boolean;
 }
 
+export interface PodioCell {
+  code: string;
+  flagUrl: string | null;
+}
+
+export interface PodioCells {
+  first: PodioCell | null;
+  second: PodioCell | null;
+  third: PodioCell | null;
+}
+
 export interface ScoreboardTableProps {
   rows: LeaderboardRow[];
   currentUserId: string | null;
@@ -111,6 +122,9 @@ export interface ScoreboardTableProps {
   nextPredByKey: Record<string, { home: number; away: number; penaltyWinnerId: string | null }>;
   // Completion / podio status columns
   completionByUser: Record<string, { made: number; total: number; podioSlots: number }>;
+  // Podium (1st/2nd/3rd place) pick columns — only meaningful once podioLocked
+  podioByUser: Record<string, PodioCells>;
+  podioLocked: boolean;
   // What-if data (empty arrays/objects → no simulator shown)
   whatIfMatches: WhatIfMatch[];
   predByKey: Record<string, WhatIfPredEntry>;
@@ -134,16 +148,23 @@ export function ScoreboardTable({
   nextMatches,
   nextPredByKey,
   completionByUser,
+  podioByUser,
+  podioLocked,
   whatIfMatches,
   predByKey,
   realPtsByKey,
 }: ScoreboardTableProps) {
   const t = useTranslations("scoreboard");
+  // Podium slot labels ("champion"/"runnerUp"/"thirdPlace") already exist in
+  // the profile namespace (profile/[userId] podium section) — reuse them for
+  // the podium column header tooltips instead of duplicating the strings.
+  const tProfile = useTranslations("profile");
 
   // ── State ──────────────────────────────────────────────────────────────────
 
   const [simulating, setSimulating] = useState(false);
   const [showStatusCols, setShowStatusCols] = useState(false);
+  const [showPodioCols, setShowPodioCols] = useState(false);
   const [mobileInputsOpen, setMobileInputsOpen] = useState(false);
 
   const defaultInputs = useMemo(
@@ -225,6 +246,16 @@ export function ScoreboardTable({
             {t("whatIfTitle")}
           </Button>
         )}
+        {podioLocked && (
+          <Button
+            size="sm"
+            variant={showPodioCols ? "default" : "outline"}
+            onClick={() => setShowPodioCols((s) => !s)}
+            aria-pressed={showPodioCols}
+          >
+            {t("togglePodiumColumns")}
+          </Button>
+        )}
         <Button
           size="sm"
           variant={showStatusCols ? "default" : "outline"}
@@ -285,6 +316,7 @@ export function ScoreboardTable({
         <div
           className={cn(
             showStatusCols ? undefined : "hide-status-cols",
+            showPodioCols ? undefined : "hide-podio-cols",
             "flex-1"
           )}
         >
@@ -358,6 +390,31 @@ export function ScoreboardTable({
                         </div>
                       </th>
                     ))
+                  )}
+                  {podioLocked && (
+                    <>
+                      <th
+                        data-podio-col=""
+                        title={tProfile("champion")}
+                        className="px-2 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        🥇
+                      </th>
+                      <th
+                        data-podio-col=""
+                        title={tProfile("runnerUp")}
+                        className="px-2 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        🥈
+                      </th>
+                      <th
+                        data-podio-col=""
+                        title={tProfile("thirdPlace")}
+                        className="px-2 py-2 text-center font-medium text-muted-foreground whitespace-nowrap"
+                      >
+                        🥉
+                      </th>
+                    </>
                   )}
                   <th
                     data-status-col=""
@@ -592,6 +649,37 @@ export function ScoreboardTable({
                             })()}
                           </td>
                         ))
+                      )}
+
+                      {/* Podium picks (data-podio-col): 1st/2nd/3rd place, flag + code */}
+                      {podioLocked && (
+                        <>
+                          {(["first", "second", "third"] as const).map((slot) => {
+                            const cell = podioByUser[row.userId]?.[slot];
+                            return (
+                              <td
+                                key={slot}
+                                data-podio-col=""
+                                className="px-2 py-2.5 text-center whitespace-nowrap"
+                              >
+                                {cell ? (
+                                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                    {cell.flagUrl && (
+                                      <img
+                                        src={cell.flagUrl}
+                                        alt=""
+                                        className="inline-block h-3 w-4 shrink-0 rounded-[2px] object-cover"
+                                      />
+                                    )}
+                                    <span>{cell.code}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </>
                       )}
 
                       {/* Completion status (data-status-col) */}
