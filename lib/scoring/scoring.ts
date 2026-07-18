@@ -246,9 +246,14 @@ export function rankEntries(entries: RankableEntry[]): LeaderboardRow[] {
  * (>0 but <max) count as neither a hit nor a zero. Unsubmitted predictions
  * and 0-pt predictions on finished matches both count as zero-matches.
  *
- * @param users           All participating users.
- * @param finishedMatches IDs and stages of matches that have been fully scored.
- * @param predictions     All scored predictions (only finished matches matter).
+ * @param users              All participating users.
+ * @param finishedMatches    IDs and stages of matches that have been fully scored.
+ * @param predictions        All scored predictions (only finished matches matter).
+ * @param podioPointsByUser  Optional: each user's already-scored podio bonus
+ *   (`podio_predictions.points_awarded`), added to `total` before ranking.
+ *   Does NOT affect hits/zeros — those are match-only stats. Omit (or pass an
+ *   empty object) for callers that don't want the podium bonus folded in, e.g.
+ *   the per-match rank trajectory.
  */
 export function computeLeaderboard(
   users: LeaderboardUser[],
@@ -257,7 +262,8 @@ export function computeLeaderboard(
     userId: string;
     matchId: string;
     pointsAwarded: number | null;
-  }>
+  }>,
+  podioPointsByUser?: Record<string, number>
 ): LeaderboardRow[] {
   const maxByMatch = new Map<string, number>();
   for (const m of finishedMatches) {
@@ -282,6 +288,7 @@ export function computeLeaderboard(
       if (pts === max) hit++;
       else if (pts === 0) zero++;
     }
+    total += podioPointsByUser?.[user.id] ?? 0;
     return { userId: user.id, displayName: user.displayName, total, hit, zero };
   });
 

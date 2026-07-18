@@ -7,7 +7,7 @@ import {
   type WhatIfPredEntry,
   type MatchInput,
 } from "../lib/scoring/what-if";
-import type { LeaderboardRow } from "../lib/scoring/scoring";
+import type { LeaderboardRow, PodioPrediction } from "../lib/scoring/scoring";
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
@@ -409,5 +409,179 @@ describe("projectStandings — half-filled inputs", () => {
     );
 
     expect(anyChange).toBe(false);
+  });
+});
+
+// ── projectStandings — podium bonus ──────────────────────────────────────────
+
+function finalMatch(
+  homeTeamId = "champ-team",
+  awayTeamId = "runner-team"
+): WhatIfMatch {
+  return {
+    id: "final",
+    roundId: "round-final",
+    roundKey: "knockout_final",
+    roundOrderIndex: 10,
+    stage: "knockout",
+    status: "scheduled",
+    homeCode: "HOM",
+    awayCode: "AWY",
+    homeName: "Home",
+    awayName: "Away",
+    homeTeamId,
+    awayTeamId,
+    kickoffLabel: "Jul 19",
+    actual: null,
+  };
+}
+
+function thirdPlaceMatch(
+  homeTeamId = "third-team",
+  awayTeamId = "fourth-team"
+): WhatIfMatch {
+  return {
+    id: "third",
+    roundId: "round-third",
+    roundKey: "knockout_3rd",
+    roundOrderIndex: 9,
+    stage: "knockout",
+    status: "scheduled",
+    homeCode: "TRD",
+    awayCode: "FTH",
+    homeName: "Third",
+    awayName: "Fourth",
+    homeTeamId,
+    awayTeamId,
+    kickoffLabel: "Jul 18",
+    actual: null,
+  };
+}
+
+describe("projectStandings — podium bonus", () => {
+  it("awards champion + runner-up when the Final is simulated", () => {
+    // Alice predicted champ-team champion, runner-team runner-up (exact) → +75.
+    // Bob predicted the reverse → 0.
+    const baseline = [makeRow("alice", 1, 100), makeRow("bob", 2, 100)];
+    const match = finalMatch("champ-team", "runner-team");
+    const inputs: Record<string, MatchInput> = {
+      final: { home: 2, away: 0, advancingTeamId: "" },
+    };
+    const podioPredByUser: Record<string, PodioPrediction> = {
+      alice: {
+        champion_team_id: "champ-team",
+        runner_up_team_id: "runner-team",
+        third_place_team_id: null,
+      },
+      bob: {
+        champion_team_id: "runner-team",
+        runner_up_team_id: "champ-team",
+        third_place_team_id: null,
+      },
+    };
+
+    const { gainByUserId, anyChange } = projectStandings(
+      baseline,
+      [match],
+      inputs,
+      {},
+      {},
+      podioPredByUser,
+      {}
+    );
+
+    expect(anyChange).toBe(true);
+    expect(gainByUserId.get("alice")).toBe(75); // 50 champion + 25 runner-up
+    expect(gainByUserId.get("bob")).toBe(0);
+  });
+
+  it("awards third place independently when only the 3rd-place match is simulated", () => {
+    const baseline = [makeRow("alice", 1, 100)];
+    const match = thirdPlaceMatch("third-team", "fourth-team");
+    const inputs: Record<string, MatchInput> = {
+      third: { home: 1, away: 0, advancingTeamId: "" },
+    };
+    const podioPredByUser: Record<string, PodioPrediction> = {
+      alice: {
+        champion_team_id: null,
+        runner_up_team_id: null,
+        third_place_team_id: "third-team",
+      },
+    };
+
+    const { gainByUserId } = projectStandings(
+      baseline,
+      [match],
+      inputs,
+      {},
+      {},
+      podioPredByUser,
+      {}
+    );
+
+    expect(gainByUserId.get("alice")).toBe(15);
+  });
+
+  it("nets zero when re-simulating the already-scored real podium (no double count)", () => {
+    // Alice's podio bonus was already scored (75 pts) and folded into her
+    // baseline total by the caller. Re-entering the same real Final result
+    // should produce a podium delta of 0.
+    const baseline = [makeRow("alice", 1, 175)]; // 100 match pts + 75 podio pts
+    const match = finalMatch("champ-team", "runner-team");
+    const inputs: Record<string, MatchInput> = {
+      final: { home: 2, away: 0, advancingTeamId: "" },
+    };
+    const podioPredByUser: Record<string, PodioPrediction> = {
+      alice: {
+        champion_team_id: "champ-team",
+        runner_up_team_id: "runner-team",
+        third_place_team_id: null,
+      },
+    };
+    const realPodioPtsByUser = { alice: 75 };
+
+    const { gainByUserId, projected } = projectStandings(
+      baseline,
+      [match],
+      inputs,
+      {},
+      {},
+      podioPredByUser,
+      realPodioPtsByUser
+    );
+
+    expect(gainByUserId.get("alice")).toBe(0);
+    expect(projected[0]!.totalPoints).toBe(175);
+  });
+
+  it("does not award champion/runner-up on an unresolved draw (no advancing team chosen)", () => {
+    const baseline = [makeRow("alice", 1, 100)];
+    const match = finalMatch("champ-team", "runner-team");
+    // Draw entered but no penalty winner selected yet → incomplete for podium.
+    const inputs: Record<string, MatchInput> = {
+      final: { home: 1, away: 1, advancingTeamId: "" },
+    };
+    const podioPredByUser: Record<string, PodioPrediction> = {
+      alice: {
+        champion_team_id: "champ-team",
+        runner_up_team_id: "runner-team",
+        third_place_team_id: null,
+      },
+    };
+
+    const { gainByUserId } = projectStandings(
+      baseline,
+      [match],
+      inputs,
+      {},
+      {},
+      podioPredByUser,
+      {}
+    );
+
+    // No prediction supplied for the match itself (predByKey is empty) and no
+    // champion/runner-up could be determined from the unresolved draw, so the
+    // total gain should be exactly 0.
+    expect(gainByUserId.get("alice")).toBe(0);
   });
 });
