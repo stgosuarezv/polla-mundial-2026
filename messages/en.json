@@ -106,6 +106,7 @@
     "seeWhoPicked": "See who picked it",
     "downloadImage": "Download PNG",
     "toggleStatusColumns": "Status columns",
+    "togglePodiumColumns": "Podium",
     "lastMatchLabel": "Last Match",
     "lastMatchFootnote": "* If two matches kicked off simultaneously, their points are summed.",
     "matchStatsTitle": "Prediction stats",

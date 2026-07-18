@@ -90,6 +90,12 @@ body {
   display: none;
 }
 
+/* Scoreboard: the podium toggle hides the 1st/2nd/3rd place pick columns
+   (cells tagged with data-podio-col). */
+.hide-podio-cols [data-podio-col] {
+  display: none;
+}
+
 /* ── Print / PDF ──────────────────────────────────────────────────────────── */
 @media print {
   @page {

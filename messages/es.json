@@ -106,6 +106,7 @@
     "seeWhoPicked": "Ver quiénes lo predijeron",
     "downloadImage": "Descargar PNG",
     "toggleStatusColumns": "Columnas de estado",
+    "togglePodiumColumns": "Podio",
     "lastMatchLabel": "Último Partido",
     "lastMatchFootnote": "* Si dos partidos se jugaron simultáneamente, los puntos se suman.",
     "matchStatsTitle": "Estadísticas de predicciones",
