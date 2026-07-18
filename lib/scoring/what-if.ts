@@ -8,9 +8,12 @@
 
 import {
   scorePrediction,
+  scorePodio,
   rankEntries,
   type LeaderboardRow,
   type Stage,
+  type PodioPrediction,
+  type PodioActual,
 } from "@/lib/scoring/scoring";
 
 // ── Shared types ───────────────────────────────────────────────────────────────
@@ -107,13 +110,22 @@ export interface ProjectionResult {
  * - Upcoming matches: base points are 0 (not yet played).
  * - Matches with blank inputs are skipped (no change to that match's contribution).
  * - Knockout draws: advancing team is whatever the user selected in `inputs[id].advancingTeamId`.
+ * - Podium bonus: if `matches` includes the Final and/or 3rd-place match
+ *   (identified by `roundKey === "knockout_final" | "knockout_3rd"`) and its
+ *   input is complete, the simulated champion/runner-up/third are derived the
+ *   same way as a real match result and scored via `scorePodio`. `baseline`'s
+ *   totals already include each player's real podio bonus (`realPodioPtsByUser`
+ *   is that same baseline), so only the delta is applied — no double count once
+ *   the podium is really scored.
  */
 export function projectStandings(
   baseline: LeaderboardRow[],
   matches: WhatIfMatch[],
   inputs: Record<string, MatchInput>,
   predByKey: Record<string, WhatIfPredEntry>,
-  realPtsByKey: Record<string, number>
+  realPtsByKey: Record<string, number>,
+  podioPredByUser: Record<string, PodioPrediction> = {},
+  realPodioPtsByUser: Record<string, number> = {}
 ): ProjectionResult {
   // Per-player aggregates, seeded from real standings
   const agg = new Map(
@@ -205,6 +217,60 @@ export function projectStandings(
         entry.total += delta;
         entry.hit += hitDelta;
         entry.zero += zeroDelta;
+        entry.gain += delta;
+      }
+    }
+  }
+
+  // ── Podium (tournament 1st/2nd/3rd) bonus ───────────────────────────────────
+  // Simulating the Final and/or the 3rd-place match also projects the podium
+  // bonus. Champion/runner-up come from the Final; third place from the
+  // 3rd-place match. Each match's slot(s) are awarded independently, so
+  // simulating just one of the two still projects that match's contribution.
+  const finalMatch = matches.find((m) => m.roundKey === "knockout_final");
+  const thirdMatch = matches.find((m) => m.roundKey === "knockout_3rd");
+
+  function simulatedWinner(
+    m: WhatIfMatch,
+    inp: MatchInput | undefined
+  ): string | null {
+    if (!isMatchInputComplete(inp)) return null;
+    const homeVal = Number(inp!.home);
+    const awayVal = Number(inp!.away);
+    if (homeVal > awayVal) return m.homeTeamId;
+    if (awayVal > homeVal) return m.awayTeamId;
+    return inp!.advancingTeamId || null; // draw → whichever team the user picked
+  }
+
+  let champion: string | null = null;
+  let runnerUp: string | null = null;
+  if (finalMatch) {
+    const winner = simulatedWinner(finalMatch, inputs[finalMatch.id]);
+    if (winner) {
+      champion = winner;
+      runnerUp =
+        winner === finalMatch.homeTeamId
+          ? finalMatch.awayTeamId
+          : finalMatch.homeTeamId;
+    }
+  }
+  const thirdPlace = thirdMatch
+    ? simulatedWinner(thirdMatch, inputs[thirdMatch.id])
+    : null;
+
+  if (champion || runnerUp || thirdPlace) {
+    const simActual: PodioActual = {
+      champion_team_id: champion,
+      runner_up_team_id: runnerUp,
+      third_place_team_id: thirdPlace,
+    };
+    for (const [userId, entry] of agg) {
+      const simPodio = scorePodio(podioPredByUser[userId] ?? null, simActual);
+      const realPodio = realPodioPtsByUser[userId] ?? 0;
+      const delta = simPodio - realPodio;
+      if (delta !== 0) {
+        anyChange = true;
+        entry.total += delta;
         entry.gain += delta;
       }
     }
