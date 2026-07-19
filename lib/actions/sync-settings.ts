@@ -112,13 +112,19 @@ export async function syncAndRescoreAsCron(): Promise<
     return { ok: true, data: { skipped: "manual mode" } };
   }
 
-  // 2. Smart-skip: proceed when EITHER:
+  // 2. Smart-skip: only gates the EXTERNAL football-data.org call (step 3),
+  //    to avoid unnecessary API traffic. Proceed with a sync when EITHER:
   //    a) A match kicked off ≥ 105 minutes ago and isn't finished yet (live
   //       score polling window — can't end before kickoff + 1h47).
   //    b) Any non-finished match still has a null team slot — football-data.org
   //       publishes bracket assignments gradually and we want to fill them as
   //       soon as the API has the data, regardless of how far away the match is.
   //       No kickoff window: the API call is one request either way.
+  //    Rescore (step 4) is NOT gated by this — it always runs every pass,
+  //    since it's idempotent and cheap (≤104 matches) and needs to react to
+  //    matches that finished without a live-window sync (e.g. a match that
+  //    already has a final score on record but whose bonus/points weren't
+  //    recalculated yet), not just to matches this pass just synced.
   const [{ count: liveCount }, { count: teamFillCount }] = await Promise.all([
     admin
       .from("matches")
@@ -132,26 +138,26 @@ export async function syncAndRescoreAsCron(): Promise<
       .or("home_team_id.is.null,away_team_id.is.null"),
   ]);
 
-  if ((liveCount ?? 0) === 0 && (teamFillCount ?? 0) === 0) {
-    return { ok: true, data: { skipped: "no pending matches" } };
-  }
+  const shouldSync = (liveCount ?? 0) > 0 || (teamFillCount ?? 0) > 0;
 
-  // 3. Sync from football-data.org
-  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
-  if (!apiKey) {
-    return { ok: false, error: "FOOTBALL_DATA_API_KEY is not configured" };
-  }
+  // 3. Sync from football-data.org (skipped when there's nothing pending)
+  let syncResult: { updated: number; teamsAssigned: number; skipped: number; errors: string[] } | null = null;
+  if (shouldSync) {
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+    if (!apiKey) {
+      return { ok: false, error: "FOOTBALL_DATA_API_KEY is not configured" };
+    }
 
-  let syncResult: { updated: number; teamsAssigned: number; skipped: number; errors: string[] };
-  try {
-    syncResult = await syncResults(admin, apiKey);
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    try {
+      syncResult = await syncResults(admin, apiKey);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
   }
 
   // 4. Rescore — idempotent and cheap (≤104 matches), so run it on every
-  //    sync pass rather than only when this pass updated a match. This also
-  //    repairs scores after manual result entry or a previously failed run.
+  //    pass regardless of whether step 3 ran. This also repairs scores after
+  //    manual result entry or a previously failed run.
   let rescored: number;
   try {
     const rescoreResult = await rescoreAllWithClient(admin);
@@ -163,10 +169,11 @@ export async function syncAndRescoreAsCron(): Promise<
   return {
     ok: true,
     data: {
-      synced: syncResult.updated,
-      teamsAssigned: syncResult.teamsAssigned,
+      synced: syncResult?.updated,
+      teamsAssigned: syncResult?.teamsAssigned,
       rescored,
-      errors: syncResult.errors.length ? syncResult.errors : undefined,
+      errors: syncResult?.errors.length ? syncResult.errors : undefined,
+      skipped: shouldSync ? undefined : "no pending matches to sync",
     },
   };
 }
