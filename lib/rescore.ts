@@ -85,7 +85,13 @@ export async function rescoreAllWithClient(
     if (predErr) throw new Error(`rescore: apply_prediction_points failed: ${predErr.message}`);
   }
 
-  // 5. Podio predictions — score only when both Final and 3rd-place are done
+  // 5. Podio predictions — each slot scores independently as soon as its own
+  //    match finishes (3rd-place bonus lands as soon as that match is played,
+  //    without waiting for the Final; champion/runner-up land once the Final
+  //    is done). scorePodio evaluates each slot against `actual` on its own,
+  //    so a null slot (its match not finished yet) simply contributes 0 —
+  //    this call is idempotent and re-run every rescore, so scores build up
+  //    incrementally and converge once both matches are finished.
   const { data: finalRound } = await admin
     .from("rounds")
     .select("id")
@@ -98,58 +104,65 @@ export async function rescoreAllWithClient(
     .eq("name_key", "rounds.knockout_3rd")
     .single();
 
-  if (finalRound && thirdRound) {
-    const { data: finalMatch } = await admin
-      .from("matches")
-      .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
-      .eq("round_id", finalRound.id)
-      .eq("status", "finished")
-      .maybeSingle();
+  const { data: finalMatch } = finalRound
+    ? await admin
+        .from("matches")
+        .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
+        .eq("round_id", finalRound.id)
+        .eq("status", "finished")
+        .maybeSingle()
+    : { data: null };
 
-    const { data: thirdMatch } = await admin
-      .from("matches")
-      .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
-      .eq("round_id", thirdRound.id)
-      .eq("status", "finished")
-      .maybeSingle();
+  const { data: thirdMatch } = thirdRound
+    ? await admin
+        .from("matches")
+        .select("home_team_id, away_team_id, home_score, away_score, advancing_team_id")
+        .eq("round_id", thirdRound.id)
+        .eq("status", "finished")
+        .maybeSingle()
+    : { data: null };
 
-    if (finalMatch && thirdMatch) {
-      const champion =
+  if (finalMatch || thirdMatch) {
+    let champion: string | null = null;
+    let runnerUp: string | null = null;
+    if (finalMatch) {
+      champion =
         finalMatch.advancing_team_id ??
         (finalMatch.home_score > finalMatch.away_score
           ? finalMatch.home_team_id
           : finalMatch.away_team_id);
-      const runnerUp =
+      runnerUp =
         champion === finalMatch.home_team_id
           ? finalMatch.away_team_id
           : finalMatch.home_team_id;
-      const thirdPlace =
-        thirdMatch.advancing_team_id ??
+    }
+    const thirdPlace = thirdMatch
+      ? (thirdMatch.advancing_team_id ??
         (thirdMatch.home_score > thirdMatch.away_score
           ? thirdMatch.home_team_id
-          : thirdMatch.away_team_id);
+          : thirdMatch.away_team_id))
+      : null;
 
-      const actual = {
-        champion_team_id: champion,
-        runner_up_team_id: runnerUp,
-        third_place_team_id: thirdPlace,
-      };
+    const actual = {
+      champion_team_id: champion,
+      runner_up_team_id: runnerUp,
+      third_place_team_id: thirdPlace,
+    };
 
-      const { data: podioPreds } = await admin
-        .from("podio_predictions")
-        .select("id, champion_team_id, runner_up_team_id, third_place_team_id");
+    const { data: podioPreds } = await admin
+      .from("podio_predictions")
+      .select("id, champion_team_id, runner_up_team_id, third_place_team_id");
 
-      const podioUpdates = (podioPreds ?? []).map((pred) => ({
-        id: pred.id,
-        points_awarded: scorePodio(pred, actual),
-      }));
+    const podioUpdates = (podioPreds ?? []).map((pred) => ({
+      id: pred.id,
+      points_awarded: scorePodio(pred, actual),
+    }));
 
-      if (podioUpdates.length) {
-        const { error: podioErr } = await admin.rpc("apply_podio_points", {
-          p_updates: podioUpdates,
-        });
-        if (podioErr) throw new Error(`rescore: apply_podio_points failed: ${podioErr.message}`);
-      }
+    if (podioUpdates.length) {
+      const { error: podioErr } = await admin.rpc("apply_podio_points", {
+        p_updates: podioUpdates,
+      });
+      if (podioErr) throw new Error(`rescore: apply_podio_points failed: ${podioErr.message}`);
     }
   }
 
