@@ -14,7 +14,7 @@ import {
   type WhatIfPredEntry,
   type MatchInput,
 } from "@/lib/scoring/what-if";
-import type { LeaderboardRow } from "@/lib/scoring/scoring";
+import type { LeaderboardRow, PodioPrediction } from "@/lib/scoring/scoring";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -129,6 +129,11 @@ export interface ScoreboardTableProps {
   whatIfMatches: WhatIfMatch[];
   predByKey: Record<string, WhatIfPredEntry>;
   realPtsByKey: Record<string, number>;
+  // Podium bonus projection: each player's podium pick + already-awarded
+  // podio points (baseline), so simulating the Final/3rd-place projects the
+  // podium bonus as a delta. Empty objects when podioLocked is false.
+  podioPredByUser: Record<string, PodioPrediction>;
+  realPodioPtsByUser: Record<string, number>;
 }
 
 // Amber palette (inline — Tailwind arbitrary values unreliable in Turbopack)
@@ -153,6 +158,8 @@ export function ScoreboardTable({
   whatIfMatches,
   predByKey,
   realPtsByKey,
+  podioPredByUser,
+  realPodioPtsByUser,
 }: ScoreboardTableProps) {
   const t = useTranslations("scoreboard");
   // Podium slot labels ("champion"/"runnerUp"/"thirdPlace") already exist in
@@ -200,9 +207,26 @@ export function ScoreboardTable({
   const { projected, gainByUserId, anyChange } = useMemo(
     () =>
       simulating
-        ? projectStandings(rows, whatIfMatches, inputs, predByKey, realPtsByKey)
+        ? projectStandings(
+            rows,
+            whatIfMatches,
+            inputs,
+            predByKey,
+            realPtsByKey,
+            podioPredByUser,
+            realPodioPtsByUser
+          )
         : { projected: rows, gainByUserId: new Map<string, number>(), anyChange: false },
-    [simulating, rows, whatIfMatches, inputs, predByKey, realPtsByKey]
+    [
+      simulating,
+      rows,
+      whatIfMatches,
+      inputs,
+      predByKey,
+      realPtsByKey,
+      podioPredByUser,
+      realPodioPtsByUser,
+    ]
   );
 
   const displayedRows = simulating ? projected : rows;

@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all";
-import { computeLeaderboard } from "@/lib/scoring/scoring";
+import { computeLeaderboard, type PodioPrediction } from "@/lib/scoring/scoring";
 import { buildRankHistory } from "@/lib/scoring/rank-history";
 import {
   loadMatchSummaries,
@@ -154,11 +154,13 @@ export default async function ScoreboardPage({ params }: Props) {
     // Podio round lock — gates whether other players' podium picks are
     // readable at all (RLS: podio: view others when locked).
     supabase.from("rounds").select("lock_time").eq("stage", "podio").maybeSingle(),
-    // Everyone's podium picks. Before the podio round locks, RLS returns only
-    // the caller's own row; that's fine since the table only renders these
-    // columns once podioLocked is true. ~1 row/user, no 1,000-row-cap concern.
+    // Everyone's podium picks + already-awarded bonus points. Before the podio
+    // round locks, RLS returns only the caller's own row; that's fine since the
+    // table only renders/counts these once podioLocked is true. ~1 row/user,
+    // no 1,000-row-cap concern.
     supabase.from("podio_predictions").select(
-      `user_id,
+      `user_id, points_awarded,
+       champion_team_id, runner_up_team_id, third_place_team_id,
        champion:teams!champion_team_id ( code, flag_url ),
        runner_up:teams!runner_up_team_id ( code, flag_url ),
        third_place:teams!third_place_team_id ( code, flag_url )`
@@ -336,7 +338,49 @@ export default async function ScoreboardPage({ params }: Props) {
     pointsAwarded: p.points_awarded,
   }));
 
-  const rows = computeLeaderboard(users, finishedWithStage, predictions);
+  // ── Podium (1st/2nd/3rd place) data ─────────────────────────────────────────
+  // Other players' rows are only visible once the podio round locks (RLS:
+  // "podio: view others when locked"); until then podioPredsRaw only contains
+  // the caller's own row, so gate both display and scoring on podioLocked.
+  const podioLocked = !!podioRound && podioRound.lock_time <= nowIso;
+
+  type PodioTeamLite = { code: string; flag_url: string | null };
+  function podioCell(
+    team: PodioTeamLite | PodioTeamLite[] | null | undefined
+  ): PodioCells["first"] {
+    const t = Array.isArray(team) ? team[0] : team;
+    return t ? { code: t.code, flagUrl: t.flag_url } : null;
+  }
+
+  const podioByUser: Record<string, PodioCells> = {};
+  // Each player's already-awarded podio bonus (0 until both the Final and
+  // 3rd-place match are scored by lib/rescore.ts) — folded into the real
+  // leaderboard total below, and used as the What-If baseline so simulating
+  // the already-real result nets a zero delta (no double count).
+  const podioPtsByUser: Record<string, number> = {};
+  const podioPredByUser: Record<string, PodioPrediction> = {};
+  for (const p of podioPredsRaw ?? []) {
+    podioByUser[p.user_id] = {
+      first: podioCell(p.champion as PodioTeamLite | PodioTeamLite[] | null),
+      second: podioCell(p.runner_up as PodioTeamLite | PodioTeamLite[] | null),
+      third: podioCell(p.third_place as PodioTeamLite | PodioTeamLite[] | null),
+    };
+    podioPtsByUser[p.user_id] = p.points_awarded ?? 0;
+    podioPredByUser[p.user_id] = {
+      champion_team_id: p.champion_team_id,
+      runner_up_team_id: p.runner_up_team_id,
+      third_place_team_id: p.third_place_team_id,
+    };
+  }
+
+  // Podium bonus affects total/rank/gap/prizes only — hits/zeros stay
+  // match-only stats (computeLeaderboard adds it to `total` before ranking).
+  const rows = computeLeaderboard(
+    users,
+    finishedWithStage,
+    predictions,
+    podioLocked ? podioPtsByUser : undefined
+  );
 
   // ── Rank trajectory ("La Carrera") ───────────────────────────────
   // Rank-per-match per player, derived from the same finished-match data — no
@@ -633,29 +677,6 @@ export default async function ScoreboardPage({ params }: Props) {
     { made: number; total: number; podioSlots: number }
   > = Object.fromEntries(completionByUserMap);
 
-  // ── Podium (1st/2nd/3rd place) pick columns ─────────────────────────────────
-  // Other players' rows are only visible once the podio round locks (RLS:
-  // "podio: view others when locked"); until then podioPredsRaw only contains
-  // the caller's own row, so gate rendering entirely on podioLocked.
-  const podioLocked = !!podioRound && podioRound.lock_time <= nowIso;
-
-  type PodioTeamLite = { code: string; flag_url: string | null };
-  function podioCell(
-    team: PodioTeamLite | PodioTeamLite[] | null | undefined
-  ): PodioCells["first"] {
-    const t = Array.isArray(team) ? team[0] : team;
-    return t ? { code: t.code, flagUrl: t.flag_url } : null;
-  }
-
-  const podioByUser: Record<string, PodioCells> = {};
-  for (const p of podioPredsRaw ?? []) {
-    podioByUser[p.user_id] = {
-      first: podioCell(p.champion as PodioTeamLite | PodioTeamLite[] | null),
-      second: podioCell(p.runner_up as PodioTeamLite | PodioTeamLite[] | null),
-      third: podioCell(p.third_place as PodioTeamLite | PodioTeamLite[] | null),
-    };
-  }
-
   // Serialize lastMatchPts Map → plain Record for client component
   const lastMatchPts: Record<string, number> = Object.fromEntries(lastMatchPtsMap);
   const showLastMatch = lastMatchIds.size > 0;
@@ -736,6 +757,8 @@ export default async function ScoreboardPage({ params }: Props) {
           whatIfMatches={whatIfMatches}
           predByKey={predByKey}
           realPtsByKey={realPtsByKey}
+          podioPredByUser={podioLocked ? podioPredByUser : {}}
+          realPodioPtsByUser={podioLocked ? podioPtsByUser : {}}
         />
       )}
 
