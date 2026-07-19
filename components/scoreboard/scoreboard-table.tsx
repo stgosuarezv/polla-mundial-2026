@@ -171,7 +171,7 @@ export function ScoreboardTable({
 
   const [simulating, setSimulating] = useState(false);
   const [showStatusCols, setShowStatusCols] = useState(false);
-  const [showPodioCols, setShowPodioCols] = useState(false);
+  const [showPodioCols, setShowPodioCols] = useState(true);
   const [mobileInputsOpen, setMobileInputsOpen] = useState(false);
 
   const defaultInputs = useMemo(
