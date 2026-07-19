@@ -477,6 +477,23 @@ describe("scorePodio", () => {
       )
     ).toBe(40); // only runner-up (25) + third (15)
   });
+
+  it("partial actual (only 3rd-place match finished) awards just that slot", () => {
+    // rescore.ts derives champion/runner-up only once the Final finishes;
+    // until then those actual slots are null so they can never match a
+    // prediction, but the 3rd-place slot scores as soon as it's known.
+    const partialActual = {
+      champion_team_id: null,
+      runner_up_team_id: null,
+      third_place_team_id: MAR,
+    };
+    expect(
+      scorePodio(
+        { champion_team_id: ARG, runner_up_team_id: FRA, third_place_team_id: MAR },
+        partialActual
+      )
+    ).toBe(15);
+  });
 });
 
 // ── computeLeaderboard ────────────────────────────────────────────────────────
